@@ -1,0 +1,90 @@
+@"
+# Node / Next.js
+node_modules/
+.next/
+.next-cache/
+.vercel/
+.turbo/
+.cache/
+.pnp/
+.pnp.cjs
+out/
+dist/
+coverage/
+.eslintcache
+.next-env.d.ts
+
+# Package managers
+.npm/
+.pnpm-store/
+.yarn/*
+!/.yarn/releases
+!/.yarn/plugins
+!/.yarn/sdks
+!/.yarn/versions
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment files
+.env
+.env.*
+*/.env
+*/.env.*
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# Builds (Python)
+build/
+python_build/
+
+# Data / Datasets / Downloads
+/data/
+/datasets/
+/downloads/
+**/data/
+**/datasets/
+**/downloads/
+**/*.sqlite
+
+# Uploads / temp
+uploads/
+/tmp/
+.temp/
+
+# Misc
+*.swp
+*.swo
+
+# Local secrets/backups
+*.bak
+*.tar
+*.tar.gz
+*.zip
+
+# ML environments (large files)
+server/generateEmbeding/.deepface/
+server/generateEmbeding/deepface_env/
+"@ | Out-File -FilePath .gitignore -Encoding UTF8

@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+mangum
+deepface
+numpy==1.24.4
+python-multipart
+pydantic
+tf-keras

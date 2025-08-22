@@ -1,0 +1,31 @@
+# # Core FastAPI and Lambda dependencies
+# fastapi==0.115.13
+# mangum==0.19.0
+# python-multipart==0.0.20
+# pydantic==2.11.7
+# awslambdaric==2.0.7
+
+# # Compatible DeepFace + CPU TensorFlow
+# deepface==0.0.75
+# tensorflow-cpu==2.11.0
+# numpy==1.24.4
+# Pillow==10.0.1
+
+# #suggested by chatgpt for retinaface detection
+# opencv-python-headless==4.8.0.74
+# retinaface
+
+
+fastapi==0.115.13
+mangum==0.19.0
+python-multipart==0.0.20
+pydantic==2.11.7
+awslambdaric==2.0.7
+
+deepface==0.0.93
+TensorFlow
+tf-keras
+numpy==1.24.4
+Pillow==10.0.1
+#opencv-python-headless
+#retina-face==0.0.17

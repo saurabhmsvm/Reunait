@@ -1,0 +1,43 @@
+--------------------------------------------------------------------------------------
+Restart Existing Environment
+--------------------------------------------------------------------------------------
+
+Step 0: Change PowerShell execution policy to run Scripts
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
+
+Step 1: Activate virtual environment
+deepface_env\Scripts\activate
+
+Step 2: Run the FastAPI server
+uvicorn main:app --reload
+
+
+---------------------------------------------------------------------------------------
+Setup New Environment
+---------------------------------------------------------------------------------------
+
+Step 0: Change PowerShell execution policy to run Scripts
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
+
+Step 1: Remove existing virtual environment (optional)
+Delete your old virtual environment folder (e.g., deepface_env) to start fresh.
+
+
+Step 2: Create and activate a new virtual environment
+python -m venv deepface_env
+
+
+Step 3: Activate virtual environment
+deepface_env\Scripts\activate
+
+
+Step 4: Upgrade pip  (OPTIONAL)
+pip install --upgrade pip
+
+
+Step 5: Install required packages
+pip install fastapi uvicorn deepface numpy python-multipart tf-keras
+
+
+Step 6: Run the FastAPI server
+uvicorn main:app --reload
