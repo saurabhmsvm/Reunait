@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.3:3001';
 
 export interface Case {
   _id: string;
@@ -8,15 +8,10 @@ export interface Case {
   status: "missing" | "found" | "closed";
   city: string;
   state: string;
-  country: string;
   dateMissingFound: string;
-  description?: string;
-  contactNumber: string;
   reward?: number;
   reportedBy: "individual" | "police" | "NGO";
-  imageUrl?: string;
   imageUrls?: string[];
-  createdAt: string;
 }
 
 // Detail view may have partial/missing fields from legacy or incomplete entries

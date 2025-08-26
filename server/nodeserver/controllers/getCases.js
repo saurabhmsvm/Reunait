@@ -72,14 +72,10 @@ export const getCases = async (req, res) => {
         status: caseData.status,
         city: caseData.city,
         state: caseData.state,
-        country: caseData.country,
         dateMissingFound: caseData.dateMissingFound,
-        description: caseData.description,
-        contactNumber: caseData.contactNumber,
         reward: caseData.reward,
         reportedBy: caseData.reportedBy,
-        imageUrls: imageUrls, // Array of S3 URLs
-        createdAt: caseData.createdAt
+        imageUrls: imageUrls // Array of S3 URLs
       };
     }));
 

@@ -38,8 +38,8 @@ export async function POST(request: NextRequest) {
     // For now, we'll just return success
     // TODO: Implement actual report processing logic
 
-    // Simulate some processing time
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // TODO: Add actual processing logic here
+    // For now, we'll process immediately without artificial delay
 
     return NextResponse.json(
       { 

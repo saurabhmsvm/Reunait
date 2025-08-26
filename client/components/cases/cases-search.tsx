@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
-import { DatePicker } from "@/components/ui/date-picker"
+import { SmartDateRangePicker } from "@/components/ui/smart-date-range-picker"
 import { Search, User, Shield, Calendar, MapPin, ChevronDown, ChevronUp, Filter } from "lucide-react"
 import { CountriesStatesService } from "@/lib/countries-states"
 import { LocationService } from "@/lib/location"
@@ -54,8 +54,8 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
     if (filters.state !== "all") count++
     if (filters.city !== "all") count++
     if (filters.gender && filters.gender !== "all") count++
-    if (filters.dateFrom instanceof Date) count++
-    if (filters.dateTo instanceof Date) count++
+    // Count date filter as 1 if either date is set
+    if (filters.dateFrom instanceof Date || filters.dateTo instanceof Date) count++
     return count
   }, [filters])
 
@@ -231,7 +231,7 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
             <div className="border-t border-border/30 mx-2 mt-2"></div>
 
             {/* Location Filters and Date Range */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 pt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 pt-4">
             {/* Country Filter */}
             <div className="space-y-1.5">
               <Label className="text-sm font-semibold text-foreground flex items-center gap-1.5 justify-center">
@@ -239,7 +239,7 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
                 Country
               </Label>
               <Select value={filters.country} onValueChange={(value) => createFilterChangeHandler("country")(value)}>
-                <SelectTrigger className="h-9 w-full border-2 border-border bg-background/80 focus:bg-background transition-all duration-300 hover:bg-background/90 rounded-lg text-sm">
+                <SelectTrigger className="h-9 w-full border-2 border-border bg-background/80 focus:bg-background transition-all duration-300 hover:bg-background/90 rounded-lg text-sm focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0 focus-visible:border-ring">
                   <SelectValue placeholder="Select country" className="truncate" />
                 </SelectTrigger>
                 <SelectContent className="max-h-60">
@@ -256,7 +256,7 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
             <div className="space-y-1.5">
               <Label className="text-sm font-semibold text-foreground text-center block">State</Label>
               <Select value={filters.state} onValueChange={(value) => createFilterChangeHandler("state")(value)}>
-                <SelectTrigger className="h-9 w-full border-2 border-border bg-background/80 focus:bg-background transition-all duration-300 hover:bg-background/90 rounded-lg text-sm">
+                <SelectTrigger className="h-9 w-full border-2 border-border bg-background/80 focus:bg-background transition-all duration-300 hover:bg-background/90 rounded-lg text-sm focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0 focus-visible:border-ring">
                   <SelectValue placeholder="Select state" className="truncate" />
                 </SelectTrigger>
                 <SelectContent className="max-h-60">
@@ -274,7 +274,7 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
             <div className="space-y-1.5">
               <Label className="text-sm font-semibold text-foreground text-center block">City</Label>
               <Select value={filters.city} onValueChange={(value) => createFilterChangeHandler("city")(value)}>
-                <SelectTrigger className="h-9 w-full border-2 border-border bg-background/80 focus:bg-background transition-all duration-300 hover:bg-background/90 rounded-lg text-sm">
+                <SelectTrigger className="h-9 w-full border-2 border-border bg-background/80 focus:bg-background transition-all duration-300 hover:bg-background/90 rounded-lg text-sm focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0 focus-visible:border-ring">
                   <SelectValue placeholder="Select city" className="truncate" />
                 </SelectTrigger>
                 <SelectContent className="max-h-60">
@@ -292,7 +292,7 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
             <div className="space-y-1.5">
               <Label className="text-sm font-semibold text-foreground text-center block">Gender</Label>
               <Select value={filters.gender || "all"} onValueChange={(value) => createFilterChangeHandler("gender")(value)}>
-                <SelectTrigger className="h-9 w-full border-2 border-border bg-background/80 focus:bg-background transition-all duration-300 hover:bg-background/90 rounded-lg text-sm">
+                <SelectTrigger className="h-9 w-full border-2 border-border bg-background/80 focus:bg-background transition-all duration-300 hover:bg-background/90 rounded-lg text-sm focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0 focus-visible:border-ring">
                   <SelectValue placeholder="Select gender" className="truncate" />
                 </SelectTrigger>
                 <SelectContent>
@@ -303,24 +303,17 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
               </Select>
             </div>
 
-            {/* Date From */}
+            {/* Smart Date Range Picker */}
             <div className="space-y-1.5">
-              <Label className="text-sm font-semibold text-foreground text-center block">Date From</Label>
-              <DatePicker
-                date={filters.dateFrom}
-                onDateChange={(date) => createFilterChangeHandler("dateFrom")(date)}
-                placeholder="Select start date"
-                className="w-full"
-              />
-            </div>
-
-            {/* Date To */}
-            <div className="space-y-1.5">
-              <Label className="text-sm font-semibold text-foreground text-center block">Date To</Label>
-              <DatePicker
-                date={filters.dateTo}
-                onDateChange={(date) => createFilterChangeHandler("dateTo")(date)}
-                placeholder="Select end date"
+              <Label className="text-sm font-semibold text-foreground text-center block">Date Range</Label>
+              <SmartDateRangePicker
+                dateFrom={filters.dateFrom}
+                dateTo={filters.dateTo}
+                onDateChange={(dateFrom, dateTo) => {
+                  createFilterChangeHandler("dateFrom")(dateFrom)
+                  createFilterChangeHandler("dateTo")(dateTo)
+                }}
+                placeholder="Select date or range"
                 className="w-full"
               />
             </div>

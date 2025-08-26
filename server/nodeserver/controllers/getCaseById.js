@@ -39,7 +39,6 @@ export const getCaseById = async (req, res) => {
       lastSearchedTime: caseData.lastSearchedTime,
       age: caseData.age,
       gender: caseData.gender,
-      // Needed by Description card
       city: caseData.city,
       state: caseData.state,
       country: caseData.country,

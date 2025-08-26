@@ -6,7 +6,9 @@ import { formatDate } from "@/lib/helpers"
 import { format } from "date-fns"
 
 interface CaseProgressTimelineProps {
-  children: React.ReactNode
+  children?: React.ReactNode
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 const TIMELINE_DATA = [
@@ -37,12 +39,14 @@ const TIMELINE_DATA = [
   }
 ]
 
-export function CaseProgressTimeline({ children }: CaseProgressTimelineProps) {
+export function CaseProgressTimeline({ children, open, onOpenChange }: CaseProgressTimelineProps) {
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {children && (
+        <DialogTrigger asChild>
+          {children}
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] sm:max-h-[80vh] backdrop-blur-md bg-background/95 border-border/50 flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">

@@ -11,24 +11,8 @@ export interface User {
   updatedAt: string
 }
 
-export interface Case {
-  _id: string
-  fullName: string
-  age: string
-  gender: "male" | "female" | "other"
-  status: "missing" | "found" | "closed"
-  country: string
-  city: string
-  state: string
-  dateMissingFound: string
-  description: string
-  contactNumber: string
-  reward: number
-  reportedBy: "individual" | "police" | "NGO"
-  imageUrl?: string
-  createdAt: string
-  updatedAt: string
-}
+// Re-export the Case interface from api.ts to avoid duplication
+export type { Case } from "@/lib/api"
 
 export interface ApiResponse<T> {
   success: boolean

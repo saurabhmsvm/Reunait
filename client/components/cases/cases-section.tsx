@@ -152,6 +152,11 @@ export function CasesSection() {
     }
 
     await fetchData(params)
+
+    // Scroll to the top of the page after page change
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" })
+    }
   }, [searchFilters, fetchData])
 
   // Memoized pagination props to prevent unnecessary re-renders

@@ -50,5 +50,5 @@ mongoose.connect(process.env.MONGO_URL, {
     useUnifiedTopology: true,
     dbName: process.env.DB_NAME || "missing_found_db"
 }).then(() => {
-    app.listen(PORT, () => console.log(`Server Port: ${PORT}`));
+    app.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT} and accessible from network`));
 }).catch((error) => console.log(`${error} did not connect`))

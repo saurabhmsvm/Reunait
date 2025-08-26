@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Brain, Loader } from "lucide-react"
 import { GradientButton } from "@/components/ui/gradient-button"
 import { cn } from "@/lib/utils"
@@ -12,58 +12,19 @@ interface AiSearchButtonProps {
 }
 
 export function AiSearchButton({ caseId, onSearchComplete, className }: AiSearchButtonProps) {
-  const [remainingTime, setRemainingTime] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
-
-  // Check remaining time on mount
-  useEffect(() => {
-    checkRemainingTime()
-  }, [])
-
-  // Real-time countdown
-  useEffect(() => {
-    if (remainingTime <= 0) return
-
-    const timer = setInterval(() => {
-      setRemainingTime(prev => {
-        const newTime = prev - 1000
-        return newTime > 0 ? newTime : 0
-      })
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [remainingTime])
-
-  const checkRemainingTime = async () => {
-    try {
-      const response = await fetch('/api/ai-search/status')
-      if (response.ok) {
-        const data = await response.json()
-        setRemainingTime(data.remainingTime || 0)
-      }
-    } catch (error) {
-      console.error('Failed to check remaining time:', error)
-    }
-  }
-
-  const formatRemainingTime = (ms: number): string => {
-    if (ms <= 0) return "Available"
-    
-    const hours = Math.floor(ms / (1000 * 60 * 60))
-    const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60))
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`
-    }
-    return `${minutes}m`
-  }
+  const [isRateLimited, setIsRateLimited] = useState(false)
+  const [rateLimitMessage, setRateLimitMessage] = useState("")
 
   const handleSearch = async () => {
-    if (remainingTime > 0 || isLoading) return
+    if (isLoading || isRateLimited) return
 
     setIsLoading(true)
+    setIsRateLimited(false)
+    setRateLimitMessage("")
+    
     try {
-      const response = await fetch('/api/ai-search', {
+      const response = await fetch('/api/find-matches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ caseId })
@@ -72,12 +33,13 @@ export function AiSearchButton({ caseId, onSearchComplete, className }: AiSearch
       const data = await response.json()
 
       if (response.status === 429) {
-        setRemainingTime(data.remainingTime)
+        // Rate limit exceeded - disable button and show message
+        setIsRateLimited(true)
+        setRateLimitMessage(data.message || 'Rate limit exceeded. Please try again later.')
         alert(data.message || 'Rate limit exceeded. Please try again later.')
       } else if (response.ok) {
-        onSearchComplete?.(data.results)
-        // Update remaining time after successful search
-        setRemainingTime(24 * 60 * 60 * 1000) // 24 hours in milliseconds
+        onSearchComplete?.(data.data)
+        // Success - button remains enabled for next search
       } else {
         alert('Search failed. Please try again.')
       }
@@ -89,7 +51,7 @@ export function AiSearchButton({ caseId, onSearchComplete, className }: AiSearch
     }
   }
 
-  const isEnabled = remainingTime <= 0 && !isLoading
+  const isEnabled = !isLoading && !isRateLimited
 
   return (
     <GradientButton
@@ -109,11 +71,8 @@ export function AiSearchButton({ caseId, onSearchComplete, className }: AiSearch
         )}
         
         <span>
-          {isLoading 
-            ? "Searching..." 
-            : remainingTime > 0 
-              ? `Available in ${formatRemainingTime(remainingTime)}`
-              : "AI Search"
+          {
+            isLoading ? "Searching..." : isRateLimited ? "Rate Limited" : "AI Search"
           }
         </span>
       </div>

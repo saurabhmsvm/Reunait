@@ -1,6 +1,8 @@
 import express from 'express';
 import Case from '../model/caseModel.js';
 import { searchSimilarCases } from '../services/pineconeService.js';
+import { getPresignedGetUrl } from '../services/s3Service.js';
+import { config } from '../config/config.js';
 
 const router = express.Router();
 
@@ -69,12 +71,57 @@ router.post('/find-matches', async (req, res) => {
       country: country || caseData.country,
       date: date || caseData.dateMissingFound
     });
+
+    // Extract case IDs from Pinecone results
+    const caseIds = searchResults.map(result => {
+      // Extract case ID from vector ID (format: caseId_imageNumber)
+      return result.id.split('_')[0];
+    });
+
+    // Fetch complete case data from MongoDB
+    const similarCases = await Case.find({
+      _id: { $in: caseIds }
+    }).select('-notifications').lean();
+
+    // Transform data to match frontend expectations and generate S3 URLs
+    const transformedCases = await Promise.all(similarCases.map(async (caseData) => {
+      // Generate S3 keys for both images using country-based prefix (no extension)
+      const countryPath = (caseData.country || 'India').replace(/\s+/g, '_').toLowerCase();
+      const imageUrls = [];
+      
+      try {
+        for (let i = 1; i <= 2; i++) {
+          const key = `${countryPath}/${caseData._id}_${i}`;
+          try {
+            const imageUrl = await getPresignedGetUrl(config.awsBucketName, key, 14400); // 4 hours expiry for AI search
+            imageUrls.push(imageUrl);
+          } catch (error) {
+            // Failed to generate URL for this image
+          }
+        }
+      } catch (error) {
+        // Error in image URL generation for this case
+      }
+
+      return {
+        _id: caseData._id,
+        fullName: caseData.fullName,
+        age: caseData.age,
+        gender: caseData.gender,
+        status: caseData.status,
+        city: caseData.city,
+        state: caseData.state,
+        dateMissingFound: caseData.dateMissingFound,
+        reward: caseData.reward,
+        reportedBy: caseData.reportedBy,
+        imageUrls: imageUrls
+      };
+    }));
     
-    // Return results
     res.json({
       success: true,
-      message: `Found ${searchResults.length} similar cases.`,
-      results: searchResults,
+      message: `Found ${transformedCases.length} similar cases.`,
+      data: transformedCases,
       lastSearchedTime: currentTime.toISOString()
     });
 

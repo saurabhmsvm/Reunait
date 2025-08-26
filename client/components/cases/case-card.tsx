@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, memo, useMemo, useCallback } from "react"
+import { useState, useEffect, memo, useMemo, useCallback, useRef } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { MapPin, User, Clock, CheckCircle, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react"
@@ -13,6 +13,7 @@ import { Typography } from "@/components/ui/typography"
 const CAROUSEL_INTERVAL = 800
 const LOADING_BASE_DELAY = 200
 const LOADING_STAGGER_DELAY = 25
+const SWIPE_THRESHOLD = 50 // Minimum distance for swipe to register
 
 interface CaseCardProps {
   case: {
@@ -24,13 +25,9 @@ interface CaseCardProps {
     city: string
     state: string
     dateMissingFound: string
-    description?: string
-    contactNumber: string
     reward?: number | string
     reportedBy: "individual" | "police" | "NGO"
-    imageUrl?: string
     imageUrls?: string[]
-    createdAt: string
   }
   index?: number
 }
@@ -51,19 +48,27 @@ export const CaseCard = memo(({ case: caseData, index = 0 }: CaseCardProps) => {
   const [isHovered, setIsHovered] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   
+  // Touch/swipe state
+  const [touchStart, setTouchStart] = useState<number | null>(null)
+  const [touchEnd, setTouchEnd] = useState<number | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragOffset, setDragOffset] = useState(0)
+  
+  // Refs
+  const carouselRef = useRef<HTMLDivElement>(null)
+  const isMobile = useRef(false)
+  
   // Images
   const { availableImages, hasMultipleImages } = useMemo(() => {
     const images = caseData.imageUrls && caseData.imageUrls.length > 0 
       ? caseData.imageUrls 
-      : caseData.imageUrl 
-        ? [caseData.imageUrl] 
-        : []
+      : []
     
     return {
       availableImages: images,
       hasMultipleImages: images.length > 1
     }
-  }, [caseData.imageUrls, caseData.imageUrl])
+  }, [caseData.imageUrls])
 
   const statusInfo = useMemo(() => {
     const date = new Date(caseData.dateMissingFound)
@@ -102,11 +107,12 @@ export const CaseCard = memo(({ case: caseData, index = 0 }: CaseCardProps) => {
       hover:-translate-y-[2px] hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 !py-0`
   }, [])
 
-  // Carousel styles
+  // Carousel styles with drag offset
   const carouselStyle = useMemo(() => ({
-    transform: `translateX(-${currentImageIndex * (100 / Math.max(availableImages.length, 1))}%)`,
-    width: `${Math.max(availableImages.length, 1) * 100}%`
-  }), [currentImageIndex, availableImages.length])
+    transform: `translateX(calc(-${currentImageIndex * (100 / Math.max(availableImages.length, 1))}% + ${dragOffset}px))`,
+    width: `${Math.max(availableImages.length, 1) * 100}%`,
+    transition: isDragging ? 'none' : 'transform 0.3s ease-in-out'
+  }), [currentImageIndex, availableImages.length, dragOffset, isDragging])
 
   const imageWidthStyle = useMemo(() => ({
     width: `${100 / Math.max(availableImages.length, 1)}%`
@@ -116,9 +122,20 @@ export const CaseCard = memo(({ case: caseData, index = 0 }: CaseCardProps) => {
     animationDelay: `${index * 50}ms`
   }), [index])
 
+  // Detect mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      isMobile.current = window.innerWidth <= 768 || 'ontouchstart' in window
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
   // Effects
   useEffect(() => {
-    if (!isHovered || !hasMultipleImages) {
+    // Only auto-rotate on desktop hover, not on mobile
+    if (!isHovered || !hasMultipleImages || isMobile.current) {
       setCurrentImageIndex(0)
       return
     }
@@ -136,15 +153,67 @@ export const CaseCard = memo(({ case: caseData, index = 0 }: CaseCardProps) => {
     return () => clearTimeout(timer)
   }, [index])
 
-  // Handlers
-  const handleMouseEnter = useCallback(() => setIsHovered(true), [])
-  const handleMouseLeave = useCallback(() => setIsHovered(false), [])
+  // Touch/swipe handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!hasMultipleImages) return
+    setTouchStart(e.targetTouches[0].clientX)
+    setTouchEnd(null)
+    setIsDragging(true)
+    setDragOffset(0)
+  }, [hasMultipleImages])
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!hasMultipleImages || touchStart === null) return
+    const currentTouch = e.targetTouches[0].clientX
+    const diff = currentTouch - touchStart
+    // Only update drag offset if it's a significant horizontal movement
+    if (Math.abs(diff) > 10) {
+      setDragOffset(diff)
+    }
+  }, [hasMultipleImages, touchStart])
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!hasMultipleImages || touchStart === null) return
+    const currentTouch = e.changedTouches[0].clientX
+    const diff = currentTouch - touchStart
+    
+    setIsDragging(false)
+    setDragOffset(0)
+    
+    if (Math.abs(diff) > SWIPE_THRESHOLD) {
+      if (diff > 0) {
+        // Swipe right - go to previous image
+        setCurrentImageIndex(prev => prev === 0 ? availableImages.length - 1 : prev - 1)
+      } else {
+        // Swipe left - go to next image
+        setCurrentImageIndex(prev => prev === availableImages.length - 1 ? 0 : prev + 1)
+      }
+    }
+    
+    setTouchStart(null)
+    setTouchEnd(null)
+  }, [hasMultipleImages, touchStart, availableImages.length])
+
+  // Mouse handlers (desktop only)
+  const handleMouseEnter = useCallback(() => {
+    if (!isMobile.current) setIsHovered(true)
+  }, [])
+  
+  const handleMouseLeave = useCallback(() => {
+    if (!isMobile.current) setIsHovered(false)
+  }, [])
+  
   const handleImageError = useCallback(() => setImageError(true), [])
+  
   const handleImageNavigation = useCallback((direction: 'prev' | 'next') => (e: React.MouseEvent) => {
     e.stopPropagation()
     setCurrentImageIndex(prev => direction === 'prev' ? (prev === 0 ? availableImages.length - 1 : prev - 1) : (prev === availableImages.length - 1 ? 0 : prev + 1))
   }, [availableImages.length])
-  const handleImageSelect = useCallback((i: number) => (e: React.MouseEvent) => { e.stopPropagation(); setCurrentImageIndex(i) }, [])
+  
+  const handleImageSelect = useCallback((i: number) => (e: React.MouseEvent) => { 
+    e.stopPropagation(); 
+    setCurrentImageIndex(i) 
+  }, [])
 
   // Loading skeleton
   if (!isMounted || isLoading) {
@@ -198,7 +267,14 @@ export const CaseCard = memo(({ case: caseData, index = 0 }: CaseCardProps) => {
       {/* Hero Image Section - moved outside CardContent to align with top border */}
       <div className="relative h-80 bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-900 overflow-hidden">
           {availableImages.length > 0 && !imageError ? (
-            <div className="relative w-full h-full">
+            <div 
+              ref={carouselRef}
+              className="relative w-full h-full"
+              style={{ touchAction: 'manipulation' }}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
               {/* Image Carousel */}
               <div 
                 className="flex w-full h-full transition-transform duration-300 ease-in-out"
@@ -223,41 +299,21 @@ export const CaseCard = memo(({ case: caseData, index = 0 }: CaseCardProps) => {
                 ))}
               </div>
               
-              {/* Navigation Controls */}
+              {/* Image Indicators - Visual only, no click functionality */}
               {hasMultipleImages && (
-                <>
-                  <button
-                    onClick={handleImageNavigation('prev')}
-                    className="absolute left-1 top-1/2 -translate-y-1/2 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-black/70"
-                    aria-label="Previous image"
-                  >
-                    <ChevronLeft className="w-3 h-3" aria-hidden="true" />
-                  </button>
-                  
-                  <button
-                    onClick={handleImageNavigation('next')}
-                    className="absolute right-1 top-1/2 -translate-y-1/2 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-black/70"
-                    aria-label="Next image"
-                  >
-                    <ChevronRight className="w-3 h-3" aria-hidden="true" />
-                  </button>
-                  
-                  {/* Image Indicators */}
-                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-                    {availableImages.map((_, idx) => (
-                      <button
-                        key={idx}
-                        onClick={handleImageSelect(idx)}
-                        className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${
-                          idx === currentImageIndex 
-                            ? 'bg-white shadow-sm' 
-                            : 'bg-white/50 hover:bg-white/80'
-                        }`}
-                        aria-label={`View image ${idx + 1}`}
-                      />
-                    ))}
-                  </div>
-                </>
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                  {availableImages.map((_, idx) => (
+                    <div
+                      key={idx}
+                      className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${
+                        idx === currentImageIndex 
+                          ? 'bg-white shadow-sm' 
+                          : 'bg-white/50'
+                      }`}
+                      aria-hidden="true"
+                    />
+                  ))}
+                </div>
               )}
 
               {/* Reporter chip removed as per design */}

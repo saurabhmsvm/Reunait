@@ -24,6 +24,7 @@ import { CaseDetailSection } from "@/components/cases/case-detail/CaseDetailSect
 import { CaseHero } from "@/components/cases/case-detail/CaseHero"
 import { CaseActions } from "@/components/cases/case-detail/CaseActions"
 import { CaseProgressTimeline } from "@/components/cases/case-detail/CaseProgressTimeline"
+import { SimilarCasesDialog } from "@/components/cases/similar-cases-dialog"
 
 
 
@@ -59,7 +60,13 @@ export default function CaseDetailPage() {
     handleAiSearch,
     handleReportInfo,
     handleReportInfoClose,
-    handleReportSuccess
+    handleReportSuccess,
+    // Similar dialog state
+    similarCases,
+    hasSimilarResults,
+    isSimilarDialogOpen,
+    setIsSimilarDialogOpen,
+    openSimilarDialog,
   } = useCaseActions({ data })
 
 
@@ -180,6 +187,8 @@ export default function CaseDetailPage() {
             aiSearchRemainingTime={aiSearchRemainingTime}
             isAiSearchEnabled={isAiSearchEnabled}
             remainingTimeFormatted={remainingTimeFormatted}
+            hasSimilarResults={hasSimilarResults}
+            onOpenSimilar={openSimilarDialog}
           />
 
           {/* Description */}
@@ -199,6 +208,14 @@ export default function CaseDetailPage() {
           onSuccess={handleReportSuccess}
         />
         
+        {/* Similar Cases Dialog */}
+        <SimilarCasesDialog
+          open={isSimilarDialogOpen}
+          onOpenChange={setIsSimilarDialogOpen}
+          cases={similarCases}
+          title="Similar People Found"
+          ctaText="See all similar"
+        />
 
       </div>
     </div>

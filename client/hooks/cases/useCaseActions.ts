@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { CaseDetail } from '@/lib/api'
+import type { Case } from '@/types'
 import { useToast } from '@/contexts/toast-context'
 
 interface UseCaseActionsProps {
@@ -11,6 +12,8 @@ export const useCaseActions = ({ data }: UseCaseActionsProps) => {
   const [isAiSearchLoading, setIsAiSearchLoading] = useState(false)
   const [currentTime, setCurrentTime] = useState(Date.now())
   const [lastSearchedTime, setLastSearchedTime] = useState<string | null>(data?.lastSearchedTime || null)
+  const [similarCases, setSimilarCases] = useState<Case[]>([])
+  const [isSimilarDialogOpen, setIsSimilarDialogOpen] = useState(false)
   const { showSuccess, showError, showShare, showSearch, showRateLimit } = useToast()
 
   // Update lastSearchedTime when data changes
@@ -76,15 +79,6 @@ export const useCaseActions = ({ data }: UseCaseActionsProps) => {
       return
     }
 
-    // Check frontend rate limiting first
-    if (lastSearchedTime) {
-      const remainingTime = calculateRemainingTime(lastSearchedTime)
-      if (remainingTime > 0) {
-        showRateLimit(`Rate limit exceeded. You can use AI search again in ${formatRemainingTime(remainingTime)} (6 times per day allowed)`)
-        return
-      }
-    }
-
     setIsAiSearchLoading(true)
     
     try {
@@ -96,7 +90,7 @@ export const useCaseActions = ({ data }: UseCaseActionsProps) => {
         date: data.dateMissingFound // date when person went missing or was found
       }
 
-      const response = await fetch('/api/find-matches', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.3:3001'}/api/find-matches`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(searchParams)
@@ -105,14 +99,22 @@ export const useCaseActions = ({ data }: UseCaseActionsProps) => {
       const responseData = await response.json()
 
       if (response.ok && responseData.success) {
-        // Success - update lastSearchedTime state with response
+        // Success - update lastSearchedTime and store results; auto-open if any
         if (responseData.lastSearchedTime) {
           setLastSearchedTime(responseData.lastSearchedTime)
         }
-        showSearch(`Found ${responseData.results?.length || 0} similar cases.`)
-        // TODO: Handle search results (show in modal, navigate to results page, etc.)
+        const results: Case[] = Array.isArray(responseData.data) ? responseData.data : []
+        setSimilarCases(results)
+        if (results.length > 0) {
+          setIsSimilarDialogOpen(true)
+        }
+        showSearch(responseData.message || `Found ${results.length} similar cases.`)
       } else {
         if (response.status === 429) {
+          // Rate limit exceeded - update lastSearchedTime from response
+          if (responseData.lastSearchedTime) {
+            setLastSearchedTime(responseData.lastSearchedTime)
+          }
           showRateLimit(responseData.message || 'Rate limit exceeded. Please try again later.')
         } else {
           showError(responseData.message || 'Search failed. Please try again.')
@@ -142,8 +144,11 @@ export const useCaseActions = ({ data }: UseCaseActionsProps) => {
   const aiSearchRemainingTime = lastSearchedTime ? calculateRemainingTime(lastSearchedTime) : 0
   const isAiSearchEnabled = aiSearchRemainingTime === 0
   const remainingTimeFormatted = aiSearchRemainingTime > 0 ? formatRemainingTime(aiSearchRemainingTime) : ''
-  
 
+  const hasSimilarResults = similarCases.length > 0
+  const openSimilarDialog = () => {
+    if (hasSimilarResults) setIsSimilarDialogOpen(true)
+  }
 
   return {
     isReportInfoOpen,
@@ -155,7 +160,13 @@ export const useCaseActions = ({ data }: UseCaseActionsProps) => {
     handleAiSearch,
     handleReportInfo,
     handleReportInfoClose,
-    handleReportSuccess
+    handleReportSuccess,
+    // Similar dialog state
+    similarCases,
+    hasSimilarResults,
+    isSimilarDialogOpen,
+    setIsSimilarDialogOpen,
+    openSimilarDialog,
   }
 }
 
