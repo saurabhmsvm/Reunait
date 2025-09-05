@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@clerk/nextjs/server'
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,14 +14,28 @@ export async function POST(request: NextRequest) {
       )
     }
 
-         // Call backend API to find similar cases
+    // Token-only: require incoming Authorization header and forward it
+    const incomingAuth = request.headers.get('authorization') || ''
+    let token: string | null = null
+    if (incomingAuth?.toLowerCase().startsWith('bearer ')) {
+      token = incomingAuth.slice(7)
+    }
+
+    // Call backend API to find similar cases
     const backendUrl = process.env.BACKEND_URL
-    console.log('Making request to:', `${backendUrl}/api/find-matches`)
+    
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    
+    // Add authorization header if token exists
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    
     const backendResponse = await fetch(`${backendUrl}/api/find-matches`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         caseId,
         gender,

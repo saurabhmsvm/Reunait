@@ -77,7 +77,7 @@ export function CaseActions({
         <Button
           variant="outline"
           onClick={onReportInfo}
-          className="gap-2 px-3 sm:px-5 py-2.5 sm:py-3 border-border/50 hover:bg-muted/50 font-semibold text-xs sm:text-sm min-w-[100px] sm:min-w-[120px] justify-center cursor-pointer"
+          className="gap-2 px-3 sm:px-5 py-2.5 sm:py-3 border-border dark:border-border/80 hover:bg-muted/50 font-semibold text-xs sm:text-sm min-w-[100px] sm:min-w-[120px] justify-center cursor-pointer"
           aria-label="Report information"
         >
           <Megaphone className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -88,7 +88,7 @@ export function CaseActions({
         <Button
           variant="outline"
           onClick={onShare}
-          className="gap-2 px-3 sm:px-5 py-2.5 sm:py-3 border-border/50 hover:bg-muted/50 font-semibold text-xs sm:text-sm min-w-[90px] sm:min-w-[100px] justify-center cursor-pointer"
+          className="gap-2 px-3 sm:px-5 py-2.5 sm:py-3 border-border dark:border-border/80 hover:bg-muted/50 font-semibold text-xs sm:text-sm min-w-[90px] sm:min-w-[100px] justify-center cursor-pointer"
           aria-label="Share this case"
         >
           <Share2 className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -98,7 +98,7 @@ export function CaseActions({
         <CaseProgressTimeline>
           <Button 
             variant="outline" 
-            className="gap-2 px-4 sm:px-5 py-2.5 sm:py-3 border-border/50 hover:bg-muted/50 font-semibold text-xs sm:text-sm min-w-[120px] sm:min-w-[140px] justify-center cursor-pointer"
+            className="gap-2 px-4 sm:px-5 py-2.5 sm:py-3 border-border dark:border-border/80 hover:bg-muted/50 font-semibold text-xs sm:text-sm min-w-[120px] sm:min-w-[140px] justify-center cursor-pointer"
           >
             <Activity className="w-3 h-3 sm:w-4 sm:h-4" />
             <span className="hidden sm:inline">Track Progress</span>
@@ -133,54 +133,12 @@ export function CaseActions({
   return (
     <div className="w-full pb-6">
       {/* Desktop / Tablet layout */}
-      <div className="hidden md:flex items-center gap-2">
-        <GradientButton 
-          onClick={onAiSearch}
-          disabled={!isAiSearchEnabled}
-          className={`min-w-[140px] h-10 px-4 text-sm ${
-            !isAiSearchEnabled ? 'opacity-60 cursor-not-allowed' : ''
-          }`}
-        >
-          <div className="flex items-center justify-center gap-2">
-            {isAiSearchLoading ? (
-              <Loader className="w-4 h-4 animate-spin" />
-            ) : !isAiSearchEnabled ? (
-              <Lock className="w-4 h-4" />
-            ) : (
-              <Brain className="w-4 h-4" />
-            )}
-            <span>
-              {isAiSearchLoading 
-                ? "Searching..." 
-                : !isAiSearchEnabled 
-                  ? `Available in ${formatRemainingTime(aiSearchRemainingTime)}`
-                  : "AI Search"
-              }
-            </span>
-          </div>
-        </GradientButton>
-
-        <Button
-          variant="outline"
-          onClick={onOpenSimilar}
-          className="gap-2 px-5 py-2.5 border-border/50 hover:bg-muted/50 font-semibold text-sm min-w-[140px] whitespace-nowrap justify-center cursor-pointer"
-          aria-label="View similar people"
-        >
-          <Users className="w-4 h-4" />
-          View Similar People
-        </Button>
-
-        <FloatingDock items={dockItems} />
-      </div>
-
-      {/* Mobile layout */}
-      <div className="flex flex-col gap-2 md:hidden">
-        {/* Row 1: AI Search + View Similar People */}
-        <div className="flex items-center gap-2">
+      <div className="hidden md:flex items-center">
+        <div className="flex items-center gap-3">
           <GradientButton 
             onClick={onAiSearch}
             disabled={!isAiSearchEnabled}
-            className={`min-w-[120px] h-10 px-3 text-sm ${
+            className={`min-w-[140px] h-10 px-4 text-sm ${
               !isAiSearchEnabled ? 'opacity-60 cursor-not-allowed' : ''
             }`}
           >
@@ -206,7 +164,53 @@ export function CaseActions({
           <Button
             variant="outline"
             onClick={onOpenSimilar}
-            className="gap-2 px-3 py-2.5 border-border/50 hover:bg-muted/50 font-semibold text-xs min-w-[120px] whitespace-nowrap justify-center cursor-pointer"
+            className="gap-2 px-4 py-2.5 border-border dark:border-border/80 hover:bg-muted/50 font-semibold text-sm min-w-[140px] whitespace-nowrap justify-center cursor-pointer"
+            aria-label="View similar people"
+          >
+            <Users className="w-4 h-4" />
+            View Similar People
+          </Button>
+
+          <div className="pl-3">
+            <FloatingDock items={dockItems} />
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile layout */}
+      <div className="flex flex-col gap-2 md:hidden">
+        {/* Row 1: AI Search + View Similar People */}
+        <div className="flex items-center gap-2">
+          <GradientButton 
+            onClick={onAiSearch}
+            disabled={!isAiSearchEnabled}
+            className={`flex-1 min-w-[140px] h-10 px-2 text-sm ${
+              !isAiSearchEnabled ? 'opacity-60 cursor-not-allowed' : ''
+            }`}
+          >
+            <div className="flex items-center justify-center gap-1.5 sm:gap-2">
+              {isAiSearchLoading ? (
+                <Loader className="w-4 h-4 animate-spin" />
+              ) : !isAiSearchEnabled ? (
+                <Lock className="w-4 h-4" />
+              ) : (
+                <Brain className="w-4 h-4" />
+              )}
+              <span className="whitespace-nowrap text-sm">
+                {isAiSearchLoading 
+                  ? "Searching..." 
+                  : !isAiSearchEnabled 
+                    ? `Available in ${formatRemainingTime(aiSearchRemainingTime)}`
+                    : "AI Search"
+                }
+              </span>
+            </div>
+          </GradientButton>
+
+          <Button
+            variant="outline"
+            onClick={onOpenSimilar}
+            className="flex-1 min-w-[140px] h-10 gap-1.5 sm:gap-2 px-3 border-border dark:border-border/80 hover:bg-muted/50 font-semibold text-xs sm:text-sm whitespace-nowrap justify-center cursor-pointer"
             aria-label="View similar people"
           >
             <Users className="w-4 h-4" />
@@ -214,33 +218,36 @@ export function CaseActions({
           </Button>
         </div>
 
-        {/* Row 2: icon-only actions */}
-        <div className="flex items-center gap-3 pt-1">
+        {/* Row 2: secondary actions with text */}
+        <div className="flex items-center gap-2 pt-1">
           <Button
             variant="outline"
             onClick={onReportInfo}
-            className="h-10 w-10 p-0 border-border/50 hover:bg-muted/50 justify-center"
+            className="flex-1 gap-1.5 px-2.5 py-2.5 border-border dark:border-border/80 hover:bg-muted/50 font-semibold text-xs min-w-0 justify-center"
             aria-label="Report information"
           >
-            <Megaphone className="w-5 h-5" />
+            <Megaphone className="w-3 h-3" />
+            <span>Report Info</span>
           </Button>
 
           <Button
             variant="outline"
             onClick={onShare}
-            className="h-10 w-10 p-0 border-border/50 hover:bg-muted/50 justify-center"
+            className="flex-1 gap-1.5 px-2.5 py-2.5 border-border dark:border-border/80 hover:bg-muted/50 font-semibold text-xs min-w-0 justify-center"
             aria-label="Share this case"
           >
-            <Share2 className="w-5 h-5" />
+            <Share2 className="w-3 h-3" />
+            <span>Share</span>
           </Button>
 
           <Button
             variant="outline"
             onClick={() => setIsProgressOpen(true)}
-            className="h-10 w-10 p-0 border-border/50 hover:bg-muted/50 justify-center"
+            className="flex-1 gap-1.5 px-2.5 py-2.5 border-border dark:border-border/80 hover:bg-muted/50 font-semibold text-xs min-w-0 justify-center"
             aria-label="Progress"
           >
-            <Activity className="w-5 h-5" />
+            <Activity className="w-3 h-3" />
+            <span>Progress</span>
           </Button>
         </div>
       </div>

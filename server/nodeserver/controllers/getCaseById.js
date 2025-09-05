@@ -1,10 +1,25 @@
 import Case from "../model/caseModel.js";
+import { clerkClient } from "@clerk/express";
 import { getPresignedGetUrl } from "../services/s3Service.js";
 import { config } from "../config/config.js";
 
 export const getCaseById = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Extract user role from Clerk public metadata
+    let userRole = 'general_user';
+    const auth = req.auth();
+    if (auth?.userId) {
+      try {
+        const user = await clerkClient.users.getUser(auth.userId);
+        userRole = user.publicMetadata?.role || 'general_user';
+      } catch (error) {
+        console.error('Failed to get user from Clerk:', error);
+        userRole = 'general_user';
+      }
+    }
+    
 
     const caseData = await Case.findById(id).select('-notifications').lean();
     if (!caseData) {
@@ -28,6 +43,56 @@ export const getCaseById = async (req, res) => {
       // Ignore image URL generation errors
     }
 
+    // Fetch similar cases if similarCaseIds exists
+    let similarCases = [];
+    if (caseData.similarCaseIds && caseData.similarCaseIds.length > 0) {
+      const similarCasesData = await Case.find({
+        _id: { $in: caseData.similarCaseIds }
+      }).select('-notifications').lean();
+
+      // Transform similar cases (same logic as AI search)
+      similarCases = await Promise.all(similarCasesData.map(async (similarCase) => {
+        // Generate image URLs for each similar case
+        const similarImageUrls = [];
+        try {
+          const countryPath = (similarCase.country || "India").replace(/\s+/g, '_').toLowerCase();
+          for (let i = 1; i <= 2; i++) {
+            const key = `${countryPath}/${similarCase._id}_${i}`;
+            try {
+              const imageUrl = await getPresignedGetUrl(config.awsBucketName, key, 180);
+              similarImageUrls.push(imageUrl);
+            } catch (error) {
+              // Ignore missing images
+            }
+          }
+        } catch (error) {
+          // Ignore image URL generation errors
+        }
+
+        return {
+          _id: similarCase._id,
+          fullName: similarCase.fullName,
+          age: similarCase.age,
+          gender: similarCase.gender,
+          status: similarCase.status,
+          city: similarCase.city,
+          state: similarCase.state,
+          country: similarCase.country,
+          dateMissingFound: similarCase.dateMissingFound,
+          reward: similarCase.reward,
+          reportedBy: similarCase.reportedBy,
+          imageUrls: similarImageUrls
+        };
+      }));
+    }
+
+    // Modify lastSearchedTime based on user role
+    // General users get normal cooldown, police and NGO users get null (always enabled)
+    const modifiedLastSearchedTime = (userRole === "general_user") 
+      ? caseData.lastSearchedTime 
+      : null;
+    
+
     const transformed = {
       _id: caseData._id,
       fullName: caseData.fullName,
@@ -36,13 +101,14 @@ export const getCaseById = async (req, res) => {
       description: caseData.description,
       reward: caseData.reward,
       imageUrls,
-      lastSearchedTime: caseData.lastSearchedTime,
+      lastSearchedTime: modifiedLastSearchedTime,
       age: caseData.age,
       gender: caseData.gender,
       city: caseData.city,
       state: caseData.state,
       country: caseData.country,
       contactNumber: caseData.contactNumber,
+      similarCases,
       // Precomputed sections for direct rendering on the client
       sections: (() => {
         const sections = [];

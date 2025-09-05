@@ -13,7 +13,7 @@ interface CasesGridProps {
 
 // Optimized loading skeleton
 const LoadingSkeleton = memo(() => (
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 animate-in fade-in-0 duration-300">
+  <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-5 animate-in fade-in-0 duration-300">
     {Array.from({ length: 6 }).map((_, index) => (
       <div key={index} className="animate-pulse">
         <div className="bg-background rounded-lg h-40 mb-3"></div>
@@ -32,11 +32,8 @@ LoadingSkeleton.displayName = "LoadingSkeleton"
 // Optimized empty state
 const EmptyState = memo(({ message }: { message: string }) => (
   <div className="text-center py-12 animate-in fade-in-0 slide-in-from-bottom-4 duration-300">
-    <Typography variant="large" className="text-muted-foreground mb-2">
+    <Typography variant="large" className="text-muted-foreground">
       {message}
-    </Typography>
-    <Typography variant="muted" className="text-muted-foreground">
-      Check back later for new cases or try adjusting your search criteria.
     </Typography>
   </div>
 ))
@@ -57,7 +54,7 @@ export const CasesGrid = memo(({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 animate-in fade-in-0 slide-in-from-bottom-4 duration-300">
+    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-5 animate-in fade-in-0 slide-in-from-bottom-4 duration-300">
       {cases.map((caseData, index) => (
         <CaseCard
           key={caseData._id}

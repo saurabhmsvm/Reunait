@@ -36,10 +36,7 @@ export function CaseDescription({ data }: CaseDescriptionProps) {
               </div>
               <div>
                 <div className="font-semibold mb-0.5">Location</div>
-                <div 
-                  className="text-muted-foreground truncate" 
-                  title={[data.city, data.state, data.country].filter(Boolean).join(', ')}
-                >
+                <div className="text-muted-foreground truncate" title={[data.city, data.state, data.country].filter(Boolean).join(', ')}>
                   {formatLocation(data.city, data.state, data.country)}
                 </div>
               </div>

@@ -16,7 +16,7 @@ export const APP_FEATURES: Feature[] = [
   {
     icon: Users,
     title: "Community Support",
-    description: "Connect with police, NGOs, and individuals to help find missing persons"
+    description: "Connect with police, NGOs, and General Users to help find missing persons"
   },
   {
     icon: Shield,

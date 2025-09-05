@@ -6,8 +6,8 @@ import Link from "next/link"
 
 export function Footer() {
   return (
-    <footer className="bg-muted/30 animate-in fade-in-0 slide-in-from-bottom-4 duration-700">
-      <div className="container mx-auto px-6 py-16">
+    <footer className="bg-background animate-in fade-in-0 slide-in-from-bottom-4 duration-700">
+      <div className="mx-auto w-full md:max-w-none lg:max-w-screen-2xl px-3 sm:px-4 md:px-5 lg:px-8 xl:px-10 py-16">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
           {/* Brand Section */}
           <div className="space-y-6 animate-in fade-in-0 slide-in-from-left-2 duration-500 delay-100">

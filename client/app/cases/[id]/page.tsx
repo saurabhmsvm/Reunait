@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useParams } from "next/navigation"
+import { useAuth } from "@clerk/nextjs"
 import { fetchCaseById, type CaseDetail } from "@/lib/api"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -32,6 +33,7 @@ import { SimilarCasesDialog } from "@/components/cases/similar-cases-dialog"
 
 export default function CaseDetailPage() {
   const params = useParams<{ id: string }>()
+  const { getToken } = useAuth()
 
   const [data, setData] = useState<CaseDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -61,7 +63,6 @@ export default function CaseDetailPage() {
     handleReportInfo,
     handleReportInfoClose,
     handleReportSuccess,
-    // Similar dialog state
     similarCases,
     hasSimilarResults,
     isSimilarDialogOpen,
@@ -77,7 +78,8 @@ export default function CaseDetailPage() {
       try {
         setLoading(true)
         setError(null)
-        const res = await fetchCaseById(params.id)
+        const token = await getToken()
+        const res = await fetchCaseById(params.id, token || undefined)
         setData(res.data)
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load case")
@@ -86,7 +88,7 @@ export default function CaseDetailPage() {
       }
     }
     if (params.id) load()
-  }, [params.id])
+  }, [params.id, getToken])
 
 
 
@@ -94,7 +96,7 @@ export default function CaseDetailPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto px-6 py-8">
+      <div className="container mx-auto px-4 sm:px-6 md:px-4 lg:px-8 py-8">
         <div className="animate-pulse grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-5 h-[460px] bg-muted rounded-xl" />
           <div className="lg:col-span-7 space-y-4">
@@ -109,7 +111,7 @@ export default function CaseDetailPage() {
 
   if (error || !data) {
     return (
-      <div className="container mx-auto px-6 py-12 text-center">
+      <div className="container mx-auto px-4 sm:px-6 md:px-4 lg:px-8 py-12 text-center">
         <p className="text-destructive">{error ?? "Case not found"}</p>
       </div>
     )
@@ -117,7 +119,7 @@ export default function CaseDetailPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-6 sm:px-8 py-8">
+      <div className="container mx-auto px-4 sm:px-6 md:px-4 lg:px-8 py-8">
       {/* Breadcrumb */}
       <div className="mb-4 text-sm text-muted-foreground">
         <Link href="/cases" className="text-primary hover:underline">Cases</Link>
@@ -133,7 +135,7 @@ export default function CaseDetailPage() {
               {images.length > 0 ? (
                 <>
                   <div className="relative w-full overflow-hidden rounded-xl border border-border bg-card">
-                    <div className="relative w-full aspect-[4/5]">
+                    <div className="relative w-full aspect-[4/5] md:max-h-[520px] lg:max-h-none">
                       <Image
                         src={images[selectedIndex]}
                         alt={`${data?.fullName ?? 'Person'} - Image ${selectedIndex + 1}`}

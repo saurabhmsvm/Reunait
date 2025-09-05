@@ -8,9 +8,10 @@ export interface Case {
   status: "missing" | "found" | "closed";
   city: string;
   state: string;
+  country: string;
   dateMissingFound: string;
   reward?: number;
-  reportedBy: "individual" | "police" | "NGO";
+  reportedBy: "general_user" | "police" | "NGO";
   imageUrls?: string[];
 }
 
@@ -28,11 +29,10 @@ export interface CaseDetail {
   description?: string;
   contactNumber?: string;
   reward?: number | string;
-  reportedBy?: "individual" | "police" | "NGO";
+  reportedBy?: "general_user" | "police" | "NGO";
   imageUrls?: string[];
   createdAt?: string;
   updatedAt?: string;
-  // Extended fields from mongoose schema
   height?: string;
   complexion?: string;
   identificationMark?: string;
@@ -48,6 +48,7 @@ export interface CaseDetail {
   lastSearchedTime?: string;
   notifications?: any[];
   sections?: { title: string; items: { label: string; value: string }[] }[];
+  similarCases?: Case[];
 }
 
 export interface PaginationInfo {
@@ -148,7 +149,7 @@ export interface CaseResponse {
   data: CaseDetail;
 }
 
-export const fetchCaseById = async (id: string): Promise<CaseResponse> => {
+export const fetchCaseById = async (id: string, token?: string): Promise<CaseResponse> => {
   try {
     // Dedupe burst requests to the same resource
     const cacheKey = `case:${id}`;
@@ -161,11 +162,18 @@ export const fetchCaseById = async (id: string): Promise<CaseResponse> => {
     }
 
     const pending = (async () => {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Add authorization header if token is provided
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const response = await fetch(`${API_BASE_URL}/cases/${id}`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       // Invalidate caches to always get fresh data when navigating to detail
       cache: 'no-store' as RequestCache,
     });

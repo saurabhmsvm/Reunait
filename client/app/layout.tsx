@@ -6,6 +6,8 @@ import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { ClientOnly } from "@/components/client-only";
 import { ToastProvider } from "@/contexts/toast-context";
+import { ClerkProvider } from "@clerk/nextjs";
+import { OnboardingGate } from "@/components/OnboardingGate";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,27 +31,41 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="light"
-          enableSystem
-          disableTransitionOnChange
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <ClerkProvider
+          appearance={{
+            elements: {
+              card: "bg-card border border-border text-foreground",
+              headerTitle: "text-foreground font-semibold",
+              headerSubtitle: "text-muted-foreground",
+              formButtonPrimary: "btn btn-primary h-10",
+              formFieldInput: "bg-background border border-border text-foreground",
+              footerActionText: "text-muted-foreground",
+              socialButtonsBlockButton: "border border-border bg-background text-foreground hover:bg-muted/50",
+            },
+          }}
         >
-          <ToastProvider>
-            <div className="min-h-screen flex flex-col animate-in fade-in-0 duration-700">
-              <ClientOnly>
-                <Navbar />
-              </ClientOnly>
-              <main className="flex-1 animate-in fade-in-0 slide-in-from-bottom-4 duration-1000 delay-200">
-                {children}
-              </main>
-              <Footer />
-            </div>
-          </ToastProvider>
-        </ThemeProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="light"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <ToastProvider>
+              <div className="min-h-screen flex flex-col animate-in fade-in-0 duration-700">
+                <ClientOnly>
+                  <Navbar />
+                </ClientOnly>
+                <main className="flex-1 animate-in fade-in-0 slide-in-from-bottom-4 duration-1000 delay-200">
+                  <OnboardingGate>
+                    {children}
+                  </OnboardingGate>
+                </main>
+                <Footer />
+              </div>
+            </ToastProvider>
+          </ThemeProvider>
+        </ClerkProvider>
       </body>
     </html>
   );

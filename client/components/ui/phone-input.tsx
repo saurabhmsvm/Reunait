@@ -27,11 +27,23 @@ type PhoneInputProps = Omit<
 > &
   Omit<RPNInput.Props<typeof RPNInput.default>, "onChange"> & {
     onChange?: (value: RPNInput.Value) => void;
+    autoPrefixDialCode?: boolean;
   };
 
 const PhoneInput: React.ForwardRefExoticComponent<PhoneInputProps> =
   React.forwardRef<React.ElementRef<typeof RPNInput.default>, PhoneInputProps>(
-    ({ className, onChange, value, ...props }, ref) => {
+    (
+      {
+        className,
+        onChange,
+        value,
+        autoPrefixDialCode = true,
+        defaultCountry = "IN",
+        onCountryChange: userOnCountryChange,
+        ...props
+      },
+      ref,
+    ) => {
       return (
         <RPNInput.default
           ref={ref}
@@ -41,6 +53,18 @@ const PhoneInput: React.ForwardRefExoticComponent<PhoneInputProps> =
           inputComponent={InputComponent}
           smartCaret={false}
           value={value || undefined}
+          defaultCountry={defaultCountry as RPNInput.Country}
+          international
+          onCountryChange={(country) => {
+            userOnCountryChange?.(country as RPNInput.Country);
+            if (autoPrefixDialCode && onChange && country) {
+              const code = `+${RPNInput.getCountryCallingCode(country as RPNInput.Country)}`;
+              const current = (value || "") as string;
+              if (!current || !current.startsWith("+")) {
+                onChange(code as RPNInput.Value);
+              }
+            }
+          }}
           /**
            * Handles the onChange event.
            *

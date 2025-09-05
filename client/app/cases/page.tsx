@@ -8,7 +8,7 @@ const CasesSection = lazy(() => import("@/components/cases/cases-section").then(
 
 // Optimized loading fallback
 const CasesLoading = () => (
-  <div className="container mx-auto px-4 py-8">
+  <div className="mx-auto w-full md:max-w-none lg:max-w-screen-2xl px-3 sm:px-4 md:px-5 lg:px-8 xl:px-10 py-8">
     <div className="animate-pulse space-y-6">
       {/* Search bar skeleton */}
       <div className="h-20 bg-background rounded-lg"></div>
@@ -33,7 +33,7 @@ const CasesLoading = () => (
 export default function CasesPage() {
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-0 -mt-4">
+      <div className="mx-auto w-full md:max-w-none lg:max-w-screen-2xl px-3 sm:px-4 md:px-5 lg:px-8 xl:px-10 py-0 -mt-4">
         <ClientOnly>
           <Suspense fallback={<CasesLoading />}>
             <CasesSection />

@@ -170,7 +170,7 @@ export function CasesSection() {
   const handleErrorDismiss = useCallback(() => setError(null), [])
 
   return (
-    <div className="container mx-auto px-6 py-6">
+    <div className="mx-auto w-full md:max-w-none lg:max-w-screen-2xl px-3 sm:px-4 md:px-5 lg:px-8 xl:px-10 py-6">
       {error && (
         <Toast
           message={error}

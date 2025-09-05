@@ -1,4 +1,5 @@
 import express from 'express';
+import { clerkClient } from '@clerk/express';
 import Case from '../model/caseModel.js';
 import { searchSimilarCases } from '../services/pineconeService.js';
 import { getPresignedGetUrl } from '../services/s3Service.js';
@@ -38,11 +39,25 @@ router.post('/find-matches', async (req, res) => {
       });
     }
 
-    // Check rate limiting (4-hour cooldown)
+    // Extract user role from Clerk public metadata
+    let userRole = 'general_user';
+    const auth = req.auth();
+    if (auth?.userId) {
+      try {
+        const user = await clerkClient.users.getUser(auth.userId);
+        userRole = user.publicMetadata?.role || 'general_user';
+      } catch (error) {
+        console.error('Failed to get user from Clerk:', error);
+        userRole = 'general_user';
+      }
+    }
+
+    // Check rate limiting (4-hour cooldown) - skip for police and NGO users
     const currentTime = new Date();
     const lastSearchedTime = caseData.lastSearchedTime;
     
-    if (lastSearchedTime) {
+    // Skip rate limiting for police and NGO users
+    if (userRole === 'general_user' && lastSearchedTime) {
       const timeDiff = currentTime.getTime() - lastSearchedTime.getTime();
       const cooldownPeriod = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
       
@@ -59,10 +74,12 @@ router.post('/find-matches', async (req, res) => {
       }
     }
 
-    // Update last searched time in MongoDB
-    await Case.findByIdAndUpdate(caseId, {
-      lastSearchedTime: currentTime
-    });
+    // Update last searched time only for general users
+    if (userRole === 'general_user') {
+      await Case.findByIdAndUpdate(caseId, {
+        lastSearchedTime: currentTime
+      });
+    }
 
     // Search for similar cases using Pinecone
     const searchResults = await searchSimilarCases(caseId, {
@@ -76,6 +93,11 @@ router.post('/find-matches', async (req, res) => {
     const caseIds = searchResults.map(result => {
       // Extract case ID from vector ID (format: caseId_imageNumber)
       return result.id.split('_')[0];
+    });
+
+    // Store similar case IDs in the Case document
+    await Case.findByIdAndUpdate(caseId, {
+      similarCaseIds: caseIds
     });
 
     // Fetch complete case data from MongoDB
@@ -111,6 +133,7 @@ router.post('/find-matches', async (req, res) => {
         status: caseData.status,
         city: caseData.city,
         state: caseData.state,
+        country: caseData.country,
         dateMissingFound: caseData.dateMissingFound,
         reward: caseData.reward,
         reportedBy: caseData.reportedBy,
@@ -122,7 +145,7 @@ router.post('/find-matches', async (req, res) => {
       success: true,
       message: `Found ${transformedCases.length} similar cases.`,
       data: transformedCases,
-      lastSearchedTime: currentTime.toISOString()
+      lastSearchedTime: userRole === 'general_user' ? currentTime.toISOString() : null
     });
 
   } catch (error) {

@@ -39,7 +39,7 @@ export interface SearchFilters {
   state: string
   status: "all" | "missing" | "found" | "closed" | undefined
   location: string
-  reportedBy: "all" | "individual" | "police" | "NGO" | undefined
+  reportedBy: "all" | "general_user" | "police" | "NGO" | undefined
   ageRange: string | undefined
   gender: string | undefined
   dateRange: string | undefined

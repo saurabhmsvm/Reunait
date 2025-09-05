@@ -1,4 +1,5 @@
 import Case from "../model/caseModel.js";
+import User from "../model/userModel.js";
 import { generateEmbeddings } from "../services/lambdaService.js";
 import { storeEmbeddings } from "../services/pineconeService.js";
 import { uploadToS3 } from "../services/s3Service.js";
@@ -82,6 +83,15 @@ export const registerCase = async (req, res) => {
 
         // Save the case
         const savedCase = await newCase.save();
+
+        // Add case ID to user's cases array
+        if (req.body.addedBy) {
+            await User.findByIdAndUpdate(
+                req.body.addedBy,
+                { $push: { cases: savedCase._id } },
+                { new: true }
+            );
+        }
 
         // Create metadata before using it
         const metadata = {

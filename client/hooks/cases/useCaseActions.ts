@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import type { CaseDetail } from '@/lib/api'
 import type { Case } from '@/types'
 import { useToast } from '@/contexts/toast-context'
+import { useAuth } from '@clerk/nextjs'
 
 interface UseCaseActionsProps {
   data: CaseDetail | null
@@ -12,9 +13,10 @@ export const useCaseActions = ({ data }: UseCaseActionsProps) => {
   const [isAiSearchLoading, setIsAiSearchLoading] = useState(false)
   const [currentTime, setCurrentTime] = useState(Date.now())
   const [lastSearchedTime, setLastSearchedTime] = useState<string | null>(data?.lastSearchedTime || null)
-  const [similarCases, setSimilarCases] = useState<Case[]>([])
+  const [similarCases, setSimilarCases] = useState<Case[]>(data?.similarCases || [])
   const [isSimilarDialogOpen, setIsSimilarDialogOpen] = useState(false)
   const { showSuccess, showError, showShare, showSearch, showRateLimit } = useToast()
+  const { getToken, isLoaded, isSignedIn } = useAuth()
 
   // Update lastSearchedTime when data changes
   useEffect(() => {
@@ -22,6 +24,13 @@ export const useCaseActions = ({ data }: UseCaseActionsProps) => {
       setLastSearchedTime(data.lastSearchedTime)
     }
   }, [data?.lastSearchedTime])
+
+  // Update similarCases when data changes
+  useEffect(() => {
+    if (data?.similarCases) {
+      setSimilarCases(data.similarCases)
+    }
+  }, [data?.similarCases])
 
   // Update current time every second for real-time countdown
   useEffect(() => {
@@ -82,6 +91,17 @@ export const useCaseActions = ({ data }: UseCaseActionsProps) => {
     setIsAiSearchLoading(true)
     
     try {
+      if (!isLoaded || !isSignedIn) {
+        showError('Please sign in to use AI search.')
+        return
+      }
+
+      const token = await getToken()
+      if (!token) {
+        showError('Authentication token missing. Please reload and sign in again.')
+        return
+      }
+
       const searchParams = {
         caseId: data._id,
         gender: data.gender,
@@ -92,7 +112,10 @@ export const useCaseActions = ({ data }: UseCaseActionsProps) => {
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.3:3001'}/api/find-matches`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(searchParams)
       })
 
@@ -161,7 +184,6 @@ export const useCaseActions = ({ data }: UseCaseActionsProps) => {
     handleReportInfo,
     handleReportInfoClose,
     handleReportSuccess,
-    // Similar dialog state
     similarCases,
     hasSimilarResults,
     isSimilarDialogOpen,

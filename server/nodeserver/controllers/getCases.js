@@ -72,6 +72,7 @@ export const getCases = async (req, res) => {
         status: caseData.status,
         city: caseData.city,
         state: caseData.state,
+        country: caseData.country,
         dateMissingFound: caseData.dateMissingFound,
         reward: caseData.reward,
         reportedBy: caseData.reportedBy,

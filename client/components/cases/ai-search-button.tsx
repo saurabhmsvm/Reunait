@@ -4,6 +4,8 @@ import { useState } from "react"
 import { Brain, Loader } from "lucide-react"
 import { GradientButton } from "@/components/ui/gradient-button"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@clerk/nextjs"
+import { useToast } from "@/contexts/toast-context"
 
 interface AiSearchButtonProps {
   caseId: string
@@ -15,6 +17,8 @@ export function AiSearchButton({ caseId, onSearchComplete, className }: AiSearch
   const [isLoading, setIsLoading] = useState(false)
   const [isRateLimited, setIsRateLimited] = useState(false)
   const [rateLimitMessage, setRateLimitMessage] = useState("")
+  const { getToken, isLoaded, isSignedIn } = useAuth()
+  const { showError } = useToast()
 
   const handleSearch = async () => {
     if (isLoading || isRateLimited) return
@@ -24,9 +28,24 @@ export function AiSearchButton({ caseId, onSearchComplete, className }: AiSearch
     setRateLimitMessage("")
     
     try {
-      const response = await fetch('/api/find-matches', {
+      if (!isLoaded || !isSignedIn) {
+        showError('Please sign in to use AI search.')
+        return
+      }
+
+      const token = await getToken()
+      if (!token) {
+        showError('Authentication token is missing. Please reload and sign in again.')
+        return
+      }
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.3:3001'
+      const response = await fetch(`${backendUrl}/api/find-matches`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        mode: 'cors',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ caseId })
       })
 

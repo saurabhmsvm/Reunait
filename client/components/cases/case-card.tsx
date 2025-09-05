@@ -8,6 +8,7 @@ import { format } from "date-fns"
 import Image from "next/image"
 import Link from "next/link"
 import { Typography } from "@/components/ui/typography"
+import { formatLocation } from "@/lib/cases/case-formatters"
 
 // Optimized constants
 const CAROUSEL_INTERVAL = 800
@@ -24,9 +25,10 @@ interface CaseCardProps {
     status: "missing" | "found" | "closed"
     city: string
     state: string
+    country: string
     dateMissingFound: string
     reward?: number | string
-    reportedBy: "individual" | "police" | "NGO"
+    reportedBy: "general_user" | "police" | "NGO"
     imageUrls?: string[]
   }
   index?: number
@@ -362,7 +364,9 @@ export const CaseCard = memo(({ case: caseData, index = 0 }: CaseCardProps) => {
            <div className="p-1.5 rounded-lg bg-accent/40">
              <MapPin className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden="true" />
            </div>
-           <span className="truncate font-medium tracking-tight">{caseData.city}, {caseData.state}</span>
+           <span className="truncate font-medium tracking-tight">
+             {formatLocation(caseData.city, caseData.state, caseData.country)}
+           </span>
          </div>
 
          {/* Status */}

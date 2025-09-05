@@ -3,22 +3,31 @@ import notificationSchema from "./notificationModel.js"
 
 const userModel = new mongoose.Schema(
     {
-        fullName: {
+        clerkUserId: {
             type: String,
             required: true,
+            unique: true,
+            index: true,
+        },
+        fullName: {
+            type: String,
+            required: false,
             minlength:2,
             maxlength: 50,
         },
-        aadharNumber: {
+        governmentIdNumber: {
             type: String,
-            maxlength: 12,
+            maxlength: 50,
             unique: true,
+            sparse: true,
+            required: false,
         },
-        mobileNumber: {
+        phoneNumber: {
             type: String,
-            required: true,
-            maxlength: 10,
+            required: false,
+            maxlength: 20,
             unique: true,
+            sparse: true,
         },
         email: {
             type: String,
@@ -26,42 +35,54 @@ const userModel = new mongoose.Schema(
             maxlength: 50,
             unique: true,
         },
-        password: {
+        address: {
             type: String,
-            required: true,
+            default: ""
         },
-        cases: {
-            type: [mongoose.Schema.Types.ObjectId],
-            default: []
+        dateOfBirth: {
+            type: Date,
+            default: null
         },
+        gender: {
+            type: String,
+            enum: ["male", "female", "other"],
+            required: false
+        },
+        city: {
+            type: String,
+            default: ""
+        },
+        state: {
+            type: String,
+            default: ""
+        },
+        country: {
+            type: String,
+            default: ""
+        },
+        pincode: {
+            type: String,
+            default: ""
+        },
+        cases: { type: [mongoose.Schema.Types.ObjectId], default: [] },
         role: {
             type: String,
-            enum: ["individual", "police", "NGO"],
-            default: "individual"
+            enum: ["general_user", "police", "NGO"],
+            default: "general_user"
         },
         ipAddress: {
-            type: String
+            type: String,
+            default: ""
         },
         notifications: {
             type: [notificationSchema],
             default: []
         },
-        lastlogin: {
-            type: Date,
-            default: null
+        onboardingCompleted: {
+            type: Boolean,
+            default: false
         },
-        lastSearched: {
-            type: String,
-            default: ""
-        },
-        resetPassword: {
-            type: String,
-            default: ""
-        },
-        resetPasswordCreatedAt: {
-            type: String,
-            default: ""
-        }
+    
     },
     {timestamps: true}
 );

@@ -57,8 +57,6 @@ const caseModel = new mongoose.Schema(
     landMark: {
       type: String,
     },
-
-    // FIR Information
     FIRNumber:{
       type: String,
       unique: true
@@ -89,7 +87,7 @@ const caseModel = new mongoose.Schema(
     },
     reportedBy: {
         type: String,
-        enum: ["individual", "police", "NGO"]
+        enum: ["general_user", "police", "NGO"]
     },
     reward: String,
     lastSearchedTime: {
@@ -100,6 +98,10 @@ const caseModel = new mongoose.Schema(
     },
     notifications: {
         type: [notificationSchema],
+        default: []
+    },
+    similarCaseIds: {
+        type: [mongoose.Schema.Types.ObjectId],
         default: []
     }
   },

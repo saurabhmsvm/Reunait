@@ -28,7 +28,7 @@ export function CaseHero({ data }: CaseHeroProps) {
         </div>
         <div className="shrink-0 flex flex-col items-start sm:items-end gap-2">
           {data.status && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-border/50 bg-card/80 backdrop-blur-sm shadow-sm">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-border dark:border-border/80 bg-card/80 backdrop-blur-sm shadow-sm">
               <div className={`w-2 h-2 rounded-full ${data.status === 'missing' ? 'bg-red-500' : data.status === 'found' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
               <span className="text-sm font-medium text-foreground/90 capitalize">{STATUS_INFO[data.status]?.label ?? 'Unknown'}</span>
             </div>
@@ -41,17 +41,17 @@ export function CaseHero({ data }: CaseHeroProps) {
         {/* Age, Gender, and Date */}
         <div className="flex flex-wrap items-center gap-2 sm:gap-4 lg:gap-6">
           {data.age && (
-            <div className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg bg-muted/50 border border-border/30 flex-shrink-0">
+            <div className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg bg-muted/50 border border-border dark:border-border/80 flex-shrink-0">
               <span className="text-sm sm:text-base font-medium text-foreground/80 whitespace-nowrap">{data.age} years</span>
             </div>
           )}
           {data.gender && (
-            <div className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg bg-muted/50 border border-border/30 flex-shrink-0">
+            <div className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg bg-muted/50 border border-border dark:border-border/80 flex-shrink-0">
               <span className="text-sm sm:text-base font-medium text-foreground/80 capitalize whitespace-nowrap">{data.gender}</span>
             </div>
           )}
           {dateText && (
-            <div className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg bg-muted/50 border border-border/30 flex-shrink-0">
+            <div className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg bg-muted/50 border border-border dark:border-border/80 flex-shrink-0">
               <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-primary/70 flex-shrink-0" />
               <span className="text-sm sm:text-base font-medium text-foreground/80 whitespace-nowrap">{dateText}</span>
             </div>

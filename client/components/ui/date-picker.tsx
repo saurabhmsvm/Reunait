@@ -19,6 +19,7 @@ interface DatePickerProps {
   placeholder?: string
   className?: string
   disabled?: boolean
+  captionLayout?: "label" | "dropdown"
 }
 
 export function DatePicker({
@@ -26,7 +27,8 @@ export function DatePicker({
   onDateChange,
   placeholder = "Pick a date",
   className,
-  disabled = false
+  disabled = false,
+  captionLayout = "label"
 }: DatePickerProps) {
   return (
     <Popover>
@@ -34,7 +36,7 @@ export function DatePicker({
         <Button
           variant={"outline"}
           className={cn(
-            "w-full justify-start text-left font-normal border-2 border-border bg-background/80 focus:bg-background transition-all duration-300 hover:bg-background/90 rounded-lg text-sm h-9 px-3 py-2 text-foreground",
+            "w-full justify-start text-left font-normal border-2 border-border bg-background/80 focus:bg-background transition-all duration-300 hover:bg-background/90 rounded-lg text-sm h-9 px-3 py-2 text-foreground cursor-pointer",
             !date && "text-muted-foreground",
             className
           )}
@@ -51,6 +53,7 @@ export function DatePicker({
           onSelect={onDateChange}
           initialFocus
           disabled={{ after: new Date() }}
+          captionLayout={captionLayout}
         />
       </PopoverContent>
     </Popover>
