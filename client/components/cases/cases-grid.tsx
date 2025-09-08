@@ -15,12 +15,12 @@ interface CasesGridProps {
 const LoadingSkeleton = memo(() => (
   <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-5 animate-in fade-in-0 duration-300">
     {Array.from({ length: 6 }).map((_, index) => (
-      <div key={index} className="animate-pulse">
-        <div className="bg-background rounded-lg h-40 mb-3"></div>
+      <div key={index}>
+        <div className="h-40 mb-3 bg-gradient-to-r from-neutral-200 via-neutral-100 to-neutral-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 animate-shimmer bg-[length:200%_100%] rounded-lg"></div>
         <div className="space-y-2">
-          <div className="h-4 bg-background rounded w-3/4"></div>
-          <div className="h-3 bg-background rounded w-1/2"></div>
-          <div className="h-3 bg-background rounded w-2/3"></div>
+          <div className="h-4 bg-gradient-to-r from-neutral-200 via-neutral-100 to-neutral-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 animate-shimmer bg-[length:200%_100%] rounded w-3/4"></div>
+          <div className="h-3 bg-gradient-to-r from-neutral-200 via-neutral-100 to-neutral-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 animate-shimmer bg-[length:200%_100%] rounded w-1/2"></div>
+          <div className="h-3 bg-gradient-to-r from-neutral-200 via-neutral-100 to-neutral-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 animate-shimmer bg-[length:200%_100%] rounded w-2/3"></div>
         </div>
       </div>
     ))}

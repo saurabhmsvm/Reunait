@@ -25,16 +25,36 @@ const app = express();
 app.set('trust proxy', true);
 
 // Middleware
-// Ensure Clerk webhook receives the raw body for Svix verification BEFORE json parsing
-app.post("/api/webhooks/clerk", express.raw({ type: "application/json" }));
-app.use(express.json());
+// Important: Skip JSON body parsing for the Clerk webhook so we can verify the raw payload
+app.use((req, res, next) => {
+    if (req.originalUrl && req.originalUrl.startsWith("/api/webhooks/clerk")) {
+        return next();
+    }
+    return express.json()(req, res, next);
+});
 app.use(helmet());
 app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
 app.use(morgan("common"));
-app.use(bodyParser.json({limit: "30mb", extended: true}));
-app.use(bodyParser.urlencoded({limit: "30mb", extended: true}));
+// Apply body parsers to all routes EXCEPT the Clerk webhook
+app.use((req, res, next) => {
+    if (req.originalUrl && req.originalUrl.startsWith("/api/webhooks/clerk")) {
+        return next();
+    }
+    return bodyParser.json({ limit: "30mb", extended: true })(req, res, (err) => {
+        if (err) return next(err);
+        return bodyParser.urlencoded({ limit: "30mb", extended: true })(req, res, next);
+    });
+});
 app.use(cors());
-app.use(clerkMiddleware());
+// Clerk middleware: mark webhook route as public so it bypasses auth
+app.use(clerkMiddleware({
+    publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
+    secretKey: process.env.CLERK_SECRET_KEY,
+    // Public routes (no auth) for Clerk webhooks
+    // @clerk/express supports a function or array; safest is to skip when url starts with webhook path
+    // We guard again below in code to ensure it isn't blocked
+    // Note: If using older versions, this option may be ignored; the explicit route remains public
+}));
 
 // Create uploads directory if it doesn't exist
 if (!fs.existsSync('uploads')) {

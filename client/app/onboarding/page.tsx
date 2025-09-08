@@ -79,10 +79,21 @@ type FormValues = z.infer<typeof schema>
 export default function OnboardingPage() {
   const router = useRouter()
   const search = useSearchParams()
-  const returnTo = (search?.get("returnTo")
+  const rawReturnTo = (search?.get("returnTo")
     || search?.get("returnBackUrl")
     || search?.get("redirect_url")
     || "/profile") as string
+  const sanitizeReturnTo = (val: string): string => {
+    try {
+      const v = (val || "/profile").trim()
+      if (!v.startsWith("/")) return "/profile"
+      if (v === "/" || v === "/profile" || v.startsWith("/cases")) return v
+      return "/profile"
+    } catch {
+      return "/profile"
+    }
+  }
+  const returnTo = sanitizeReturnTo(rawReturnTo)
   const { getToken } = useAuth()
   const { showSuccess, showError } = useToast()
   const [submitting, setSubmitting] = useState(false)

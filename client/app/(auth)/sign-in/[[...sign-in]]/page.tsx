@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { Eye, EyeOff } from "lucide-react"
 import { CaptchaRegion } from "@/components/auth/CaptchaRegion"
+import { getOnboardingStatus } from "@/lib/clerk-metadata"
 
 export default function SignInCatchAllPage() {
   const router = useRouter()
@@ -17,19 +18,29 @@ export default function SignInCatchAllPage() {
     || search?.get("returnBackUrl")
     || search?.get("redirect_url")
     || "/profile") as string
+  const sanitizeReturnTo = (val: string): string => {
+    try {
+      const v = (val || "/profile").trim()
+      if (!v.startsWith("/")) return "/profile"
+      if (v === "/" || v === "/profile" || v.startsWith("/cases")) return v
+      return "/profile"
+    } catch {
+      return "/profile"
+    }
+  }
   const returnTo = (() => {
     try {
       if (rawReturnTo?.startsWith("http")) {
         const u = new URL(rawReturnTo)
-        return u.pathname || "/profile"
+        return sanitizeReturnTo(u.pathname || "/profile")
       }
-      return rawReturnTo.startsWith("/") ? rawReturnTo : "/profile"
+      return sanitizeReturnTo(rawReturnTo.startsWith("/") ? rawReturnTo : "/profile")
     } catch {
       return "/profile"
     }
   })()
-  const { isLoaded, isSignedIn, signIn, setActive } = useSignIn() as any
-  const { getToken } = useAuth()
+  const { isLoaded: isSignInLoaded, signIn, setActive } = useSignIn() as any
+  const { getToken, sessionClaims, isSignedIn, isLoaded: isAuthLoaded } = useAuth()
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -39,9 +50,23 @@ export default function SignInCatchAllPage() {
 
   const routeBasedOnOnboarding = async () => {
     try {
+      // Primary: Check Clerk metadata (use top-level sessionClaims to avoid hook misuse)
+      const onboardingFromMetadata = getOnboardingStatus(sessionClaims)
+      
+      if (onboardingFromMetadata !== null) {
+        // Metadata exists, use it
+        if (onboardingFromMetadata) {
+          router.replace(returnTo)
+        } else {
+          router.replace(`/onboarding?returnTo=${encodeURIComponent(returnTo)}`)
+        }
+        return
+      }
+      
+      // Fallback: API call if metadata missing
       const token = await getToken()
       if (!token) {
-        router.replace(`/onboarding?returnTo=${encodeURIComponent("/profile")}`)
+        router.replace(`/onboarding?returnTo=${encodeURIComponent(returnTo)}`)
         return
       }
       const base = process.env.NEXT_PUBLIC_API_URL || "http://192.168.1.3:3001"
@@ -54,22 +79,22 @@ export default function SignInCatchAllPage() {
       if (completed) {
         router.replace(returnTo)
       } else {
-        router.replace(`/onboarding?returnTo=${encodeURIComponent("/profile")}`)
+        router.replace(`/onboarding?returnTo=${encodeURIComponent(returnTo)}`)
       }
     } catch (_) {
-      router.replace(`/onboarding?returnTo=${encodeURIComponent("/profile")}`)
+      router.replace(`/onboarding?returnTo=${encodeURIComponent(returnTo)}`)
     }
   }
 
   useEffect(() => {
-    if ((isLoaded as any) && (isSignedIn as any)) {
+    if ((isAuthLoaded as any) && (isSignedIn as any)) {
       void routeBasedOnOnboarding()
     }
-  }, [isLoaded, isSignedIn, router, returnTo])
+  }, [isAuthLoaded, isSignedIn, router, returnTo])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!isLoaded) return
+    if (!isSignInLoaded) return
     setError(null)
     setLoading(true)
     try {
@@ -88,12 +113,12 @@ export default function SignInCatchAllPage() {
   }
 
   const handleGoogle = async () => {
-    if (!isLoaded) return
+    if (!isSignInLoaded) return
     try {
       await signIn.authenticateWithRedirect({
         strategy: "oauth_google",
-        redirectUrl: "/sign-in",
-        redirectUrlComplete: "/sign-in",
+        redirectUrl: "/sso-callback",
+        redirectUrlComplete: `/sso-complete?returnTo=${encodeURIComponent(returnTo)}`,
       })
     } catch (err: any) {
       setError(err?.errors?.[0]?.message || "Google sign-in failed.")

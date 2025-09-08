@@ -72,11 +72,13 @@ router.post("/users/profile", requireAuth(), async (req, res) => {
             );
         }
 
-        // Update Clerk public metadata with user role
+        // Update Clerk public metadata with onboarding status and role
         try {
             await clerkClient.users.updateUserMetadata(userId, {
                 publicMetadata: {
-                    role: user.role || 'general_user'
+                    onboarding: true,
+                    role: user.role || 'general_user',
+                    lastUpdated: new Date().toISOString()
                 }
             });
         } catch (error) {
@@ -276,9 +278,9 @@ router.get("/users/profile", requireAuth(), async (req, res) => {
 
 router.post("/webhooks/clerk", express.raw({ type: "application/json" }), async (req, res) => {
   try {
-    const secret = process.env.CLERK_WEBHOOK_SECRET;
+    const secret = process.env.CLERK_WEBHOOK_SIGNING_SECRET;
     if (!secret) {
-      return res.status(500).json({ success: false, message: "Missing CLERK_WEBHOOK_SECRET" });
+      return res.status(500).json({ success: false, message: "Missing CLERK_WEBHOOK_SIGNING_SECRET" });
     }
 
     // Verify with Svix
@@ -289,7 +291,8 @@ router.post("/webhooks/clerk", express.raw({ type: "application/json" }), async 
       return res.status(400).json({ success: false, message: "Missing Svix headers" });
     }
 
-    const payload = req.body; // Buffer (raw)
+    // Svix expects the exact raw string body
+    const payload = Buffer.isBuffer(req.body) ? req.body.toString("utf8") : req.body;
     const { Webhook } = await import("svix");
     const wh = new Webhook(secret);
     const evt = wh.verify(payload, {
@@ -306,36 +309,47 @@ router.post("/webhooks/clerk", express.raw({ type: "application/json" }), async 
       return res.status(400).json({ success: false, message: "Invalid webhook event" });
     }
 
-    // In production (no DEV_JIT), use webhook to provision/update
-    const devJit = process.env.DEV_JIT === '1' || process.env.NEXT_PUBLIC_DEV_JIT === '1';
+    // Handle webhook events for user provisioning and metadata updates
+    if (type === "user.created") {
+      const clerkUserId = data?.id;
+      const email = data?.email_addresses?.[0]?.email_address || data?.primary_email_address_id || "";
 
-    if (!devJit) {
-      if (type === "user.created") {
-        const clerkUserId = data?.id;
-        const email = data?.email_addresses?.[0]?.email_address || data?.primary_email_address_id || "";
-
-        if (clerkUserId) {
-          await User.findOneAndUpdate(
-            { clerkUserId },
-            { $setOnInsert: { clerkUserId, email, onboardingCompleted: false } },
-            { upsert: true, new: false, setDefaultsOnInsert: true }
-          );
+      if (clerkUserId) {
+        // 1. Create MongoDB record
+        await User.findOneAndUpdate(
+          { clerkUserId },
+          { $setOnInsert: { clerkUserId, email, onboardingCompleted: false } },
+          { upsert: true, new: false, setDefaultsOnInsert: true }
+        );
+        
+        // 2. Set initial Clerk metadata
+        try {
+          await clerkClient.users.updateUserMetadata(clerkUserId, {
+            publicMetadata: {
+              onboarding: false,
+              role: null,
+              lastUpdated: new Date().toISOString()
+            }
+          });
+        } catch (error) {
+          console.error('Failed to set initial Clerk metadata:', error);
+          // Don't fail the webhook if metadata update fails
         }
-      } else if (type === "user.updated") {
-        const clerkUserId = data?.id;
-        if (clerkUserId) {
-          const email = data?.email_addresses?.[0]?.email_address || "";
-          await User.updateOne(
-            { clerkUserId },
-            { $set: { email } }
-          );
-        }
-      } else if (type === "user.deleted") {
-        const clerkUserId = data?.id;
-        if (clerkUserId) {
-          // Optionally deactivate or remove user; keep data unless required to delete
-          await User.updateOne({ clerkUserId }, { $set: { /* soft-delete flag optional */ } });
-        }
+      }
+    } else if (type === "user.updated") {
+      const clerkUserId = data?.id;
+      if (clerkUserId) {
+        const email = data?.email_addresses?.[0]?.email_address || "";
+        await User.updateOne(
+          { clerkUserId },
+          { $set: { email } }
+        );
+      }
+    } else if (type === "user.deleted") {
+      const clerkUserId = data?.id;
+      if (clerkUserId) {
+        // Optionally deactivate or remove user; keep data unless required to delete
+        await User.updateOne({ clerkUserId }, { $set: { /* soft-delete flag optional */ } });
       }
     }
 

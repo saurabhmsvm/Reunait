@@ -980,11 +980,11 @@ function InfoRow({ icon, label, value }: { icon?: React.ReactNode, label: string
 
 function SectionSkeleton() {
   return (
-    <div className="space-y-3 animate-pulse">
+    <div className="space-y-3">
       {Array.from({ length: 7 }).map((_, i) => (
         <div key={i} className="grid grid-cols-6 gap-3">
-          <div className="col-span-3 h-4 bg-muted rounded" />
-          <div className="col-span-3 h-4 bg-muted rounded" />
+          <div className="col-span-3 h-4 bg-gradient-to-r from-neutral-200 via-neutral-100 to-neutral-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 animate-shimmer bg-[length:200%_100%] rounded" />
+          <div className="col-span-3 h-4 bg-gradient-to-r from-neutral-200 via-neutral-100 to-neutral-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 animate-shimmer bg-[length:200%_100%] rounded" />
         </div>
       ))}
     </div>
