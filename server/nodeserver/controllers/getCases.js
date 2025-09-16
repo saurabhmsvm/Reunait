@@ -9,7 +9,12 @@ export const getCases = async (req, res) => {
       limit = 40, 
       country = "India", 
       state = null, 
-      city = null 
+      city = null,
+      status = undefined,
+      gender = undefined,
+      dateFrom = undefined,
+      dateTo = undefined,
+      keyword = undefined
     } = req.query;
 
     // Convert page and limit to numbers
@@ -17,30 +22,74 @@ export const getCases = async (req, res) => {
     const limitNumber = parseInt(limit);
     const skip = (pageNumber - 1) * limitNumber;
 
+    // Normalize helper
+    const isAllOrEmpty = (val) => !val || val === "" || val === "null" || (typeof val === "string" && val.toLowerCase() === "all");
+
     // Build filter object - start with country only
     const filter = {
       country: country
     };
 
     // Add state filter only if provided and not "all"
-    if (state && state !== "null" && state !== "" && state !== "all") {
+    if (!isAllOrEmpty(state)) {
       filter.state = state;
     }
 
     // Add city filter only if provided and not "all"
-    if (city && city !== "null" && city !== "" && city !== "all") {
+    if (!isAllOrEmpty(city)) {
       filter.city = city;
+    }
+
+    // Add status filter when provided (missing | found | closed)
+    if (!isAllOrEmpty(status)) {
+      filter.status = status;
+    }
+
+    // Add gender filter when provided (male | female | other)
+    if (!isAllOrEmpty(gender)) {
+      filter.gender = gender;
+    }
+
+    // Add date range filter when provided
+    if (dateFrom || dateTo) {
+      filter.dateMissingFound = {};
+      if (dateFrom) {
+        const fromDate = new Date(dateFrom);
+        if (!isNaN(fromDate.getTime())) {
+          filter.dateMissingFound.$gte = fromDate;
+        }
+      }
+      if (dateTo) {
+        const toDate = new Date(dateTo);
+        if (!isNaN(toDate.getTime())) {
+          filter.dateMissingFound.$lte = toDate;
+        }
+      }
     }
 
     // Always show only cases where showCase is true
     filter.showCase = true;
 
+    // Apply keyword search across allowed fields
+    let keywordQuery = null;
+    if (keyword && typeof keyword === "string" && keyword.trim().length > 0) {
+      const regex = new RegExp(keyword.trim(), "i");
+      keywordQuery = {
+        $or: [
+          { fullName: regex },
+          { FIRNumber: regex }
+        ]
+      };
+    }
+
+    const finalQuery = keywordQuery ? { $and: [filter, keywordQuery] } : filter;
+
     // Get total count for pagination
-    const totalCases = await Case.countDocuments(filter);
+    const totalCases = await Case.countDocuments(finalQuery);
     const totalPages = Math.ceil(totalCases / limitNumber);
 
     // Fetch cases with pagination
-    const cases = await Case.find(filter)
+    const cases = await Case.find(finalQuery)
       .sort({ createdAt: -1 }) // Latest cases first
       .skip(skip)
       .limit(limitNumber)
@@ -72,6 +121,7 @@ export const getCases = async (req, res) => {
         fullName: caseData.fullName,
         age: caseData.age,
         gender: caseData.gender,
+        FIRNumber: caseData.FIRNumber,
         status: caseData.status,
         city: caseData.city,
         state: caseData.state,
@@ -99,8 +149,13 @@ export const getCases = async (req, res) => {
       },
       filters: {
         country,
-        state: state || null,
-        city: city || null
+        state: isAllOrEmpty(state) ? null : state,
+        city: isAllOrEmpty(city) ? null : city,
+        status: isAllOrEmpty(status) ? undefined : status,
+        gender: isAllOrEmpty(gender) ? undefined : gender,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+        keyword: keyword || undefined
       }
     });
 

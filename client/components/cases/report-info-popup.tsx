@@ -52,7 +52,7 @@ export function ReportInfoPopup({ isOpen, onClose, caseId, addedBy, onSuccess }:
     setIsSubmitting(true);
     
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.3:3001'}/api/report`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://192.168.1.3:3001'}/api/report`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -187,8 +187,8 @@ export function ReportInfoPopup({ isOpen, onClose, caseId, addedBy, onSuccess }:
                   }
                 }}
                 placeholder="Describe what you know about this case, any relevant details, or information that might help investigators..."
-                                 className="
-                   w-full min-h-[100px] sm:min-h-[150px] max-h-[150px] sm:max-h-[250px] 
+                className="
+                   w-full 
                    resize-none 
                    text-sm
                    leading-relaxed
@@ -196,11 +196,15 @@ export function ReportInfoPopup({ isOpen, onClose, caseId, addedBy, onSuccess }:
                    border-gray-300 dark:border-gray-600
                    focus:border-blue-500 focus:ring-blue-500
                    rounded-lg
+                   overflow-y-auto
                  "
                 style={{ 
                   boxSizing: 'border-box',
                   wordWrap: 'break-word',
-                  overflowWrap: 'break-word'
+                  overflowWrap: 'break-word',
+                  height: '120px',
+                  maxHeight: '120px',
+                  minHeight: '120px'
                 }}
                 maxLength={MAX_CHARACTERS}
               />

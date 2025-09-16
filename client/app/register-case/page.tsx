@@ -403,7 +403,7 @@ export default function RegisterCasePage() {
       const userRole = userProfile?.role || 'general_user'
       formData.append('reportedBy', userRole)
 
-      const base = process.env.NEXT_PUBLIC_API_URL || "http://192.168.1.3:3001"
+      const base = process.env.NEXT_PUBLIC_BACKEND_URL || "http://192.168.1.3:3001"
       const response = await fetch(`${base}/auth/registerCase`, {
         method: "POST",
         headers: {

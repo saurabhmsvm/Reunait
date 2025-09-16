@@ -72,7 +72,7 @@ export default function SignInCatchAllPage() {
         router.replace(`/onboarding?returnTo=${encodeURIComponent(returnTo)}`)
         return
       }
-      const base = process.env.NEXT_PUBLIC_API_URL || "http://192.168.1.3:3001"
+      const base = process.env.NEXT_PUBLIC_BACKEND_URL || "http://192.168.1.3:3001"
       const res = await fetch(`${base}/api/users/profile`, {
         method: "GET",
         headers: { Authorization: `Bearer ${token}` },

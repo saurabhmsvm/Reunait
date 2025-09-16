@@ -146,7 +146,7 @@ export default function ProfilePage() {
         setLoading(true)
         const token = await getToken()
         if (!token) return
-        const base = process.env.NEXT_PUBLIC_API_URL || "http://192.168.1.3:3001"
+        const base = process.env.NEXT_PUBLIC_BACKEND_URL || "http://192.168.1.3:3001"
         const res = await fetch(`${base}/api/users/profile`, {
           method: "GET",
           headers: { Authorization: `Bearer ${token}` },
@@ -333,7 +333,7 @@ export default function ProfilePage() {
       const token = await getToken()
       if (!token) return
       
-      const base = process.env.NEXT_PUBLIC_API_URL || "http://192.168.1.3:3001"
+      const base = process.env.NEXT_PUBLIC_BACKEND_URL || "http://192.168.1.3:3001"
       const res = await fetch(`${base}/api/users/profile?page=${page}`, {
         method: "GET",
         headers: { Authorization: `Bearer ${token}` }
@@ -371,7 +371,7 @@ export default function ProfilePage() {
       const token = await getToken()
       if (!token) return
       
-      const base = process.env.NEXT_PUBLIC_API_URL || "http://192.168.1.3:3001"
+      const base = process.env.NEXT_PUBLIC_BACKEND_URL || "http://192.168.1.3:3001"
       
       const payload: Record<string, any> = {
         role: profile.role,

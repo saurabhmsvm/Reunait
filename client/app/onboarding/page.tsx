@@ -240,7 +240,10 @@ export default function OnboardingPage() {
 
       Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k])
 
-      const base = process.env.NEXT_PUBLIC_API_URL || "http://192.168.1.3:3001"
+      // Debug logging to see what we're sending
+      console.log("Sending onboarding payload:", payload)
+
+      const base = process.env.NEXT_PUBLIC_BACKEND_URL || "http://192.168.1.3:3001"
       const res = await fetch(`${base}/api/users/profile`, {
         method: "POST",
         headers: {

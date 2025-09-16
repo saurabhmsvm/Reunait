@@ -1,15 +1,18 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
+import { createPortal } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
 import { SmartDateRangePicker } from "@/components/ui/smart-date-range-picker"
-import { Search, User, Shield, Calendar, MapPin, ChevronDown, ChevronUp, Filter } from "lucide-react"
+import { Search, User, Shield, Calendar, MapPin, ChevronDown, ChevronUp, Filter, ChevronRight } from "lucide-react"
 import { CountriesStatesService } from "@/lib/countries-states"
 import { LocationService } from "@/lib/location"
+import { fetchCases, type CasesParams, type Case } from "@/lib/api"
+import { useRouter } from "next/navigation"
 
 export interface SearchFilters {
   keyword: string
@@ -46,6 +49,23 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
   const [states, setStates] = useState<string[]>([])
   const [cities, setCities] = useState<string[]>([])
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false)
+  const [suggestions, setSuggestions] = useState<Case[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false)
+  const debounceRef = useRef<NodeJS.Timeout | null>(null)
+  const [activeIndex, setActiveIndex] = useState<number>(-1)
+  const router = useRouter()
+  const inputWrapperRef = useRef<HTMLDivElement | null>(null)
+  const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; width: number } | null>(null)
+
+  const updateDropdownPosition = useCallback(() => {
+    const el = inputWrapperRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const top = rect.bottom + 8 + window.scrollY
+    const left = rect.left + window.scrollX
+    setDropdownRect({ top, left, width: rect.width })
+  }, [])
 
   // Memoized active filters count
   const activeFiltersCount = useMemo(() => {
@@ -151,6 +171,98 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
     setIsAdvancedOpen(prev => !prev)
   }, [])
 
+  // Debounced lightweight suggestions under the search input
+  useEffect(() => {
+    const keyword = (filters.keyword || "").trim()
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+
+    if (keyword.length === 0) {
+      setSuggestions([])
+      setShowSuggestions(false)
+      return
+    }
+
+    debounceRef.current = setTimeout(async () => {
+      try {
+        setSuggestionsLoading(true)
+        const params: CasesParams = {
+          page: 1,
+          limit: 8,
+          country: filters.country,
+          state: filters.state === "all" ? null : filters.state,
+          city: filters.city === "all" ? null : filters.city,
+          status: filters.status && filters.status !== "all" ? filters.status : undefined,
+          gender: filters.gender && filters.gender !== "all" ? filters.gender : undefined,
+          dateFrom: filters.dateFrom,
+          dateTo: filters.dateTo,
+          keyword
+        }
+        const res = await fetchCases(params)
+        setSuggestions(res.data || [])
+        updateDropdownPosition()
+        setShowSuggestions(true)
+      } catch (e) {
+        setSuggestions([])
+        setShowSuggestions(false)
+      } finally {
+        setSuggestionsLoading(false)
+      }
+    }, 300)
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [filters.keyword, filters.country, filters.state, filters.city, filters.status, filters.gender, filters.dateFrom, filters.dateTo])
+
+  // Keep dropdown aligned on resize/scroll while visible
+  useEffect(() => {
+    if (!showSuggestions) return
+    updateDropdownPosition()
+    const onScroll = () => updateDropdownPosition()
+    const onResize = () => updateDropdownPosition()
+    window.addEventListener('scroll', onScroll, true)
+    window.addEventListener('resize', onResize)
+    return () => {
+      window.removeEventListener('scroll', onScroll, true)
+      window.removeEventListener('resize', onResize)
+    }
+  }, [showSuggestions, updateDropdownPosition])
+
+  const handleSuggestionClick = useCallback((item: Case) => {
+    setShowSuggestions(false)
+    router.push(`/cases/${item._id}`)
+  }, [router])
+
+  // Simple highlighter for matched query
+  const Highlight = useCallback(({ text, query }: { text?: string; query: string }) => {
+    const value = text || ""
+    if (!query) return <span className="tracking-normal leading-tight">{value}</span>
+    const lower = value.toLowerCase()
+    const q = query.toLowerCase()
+    const idx = lower.indexOf(q)
+    if (idx === -1) return <span className="tracking-normal leading-tight">{value}</span>
+
+    const before = value.slice(0, idx)
+    const match = value.slice(idx, idx + query.length)
+    const after = value.slice(idx + query.length)
+
+    return (
+      <span className="tracking-normal leading-tight">
+        {before}
+        {<mark className="bg-yellow-200/60 dark:bg-yellow-300/30 rounded-[2px] px-0 py-0 m-0 align-baseline">{match}</mark>}
+        {after}
+      </span>
+    )
+  }, [])
+
+  const getInitials = useCallback((name?: string) => {
+    if (!name) return "?"
+    const parts = name.trim().split(/\s+/)
+    const first = parts[0]?.[0] || ""
+    const second = parts[1]?.[0] || ""
+    return (first + second).toUpperCase() || first.toUpperCase() || "?"
+  }, [])
+
   return (
     <Card className="border border-border bg-card/90 backdrop-blur-md animate-in fade-in-0 slide-in-from-top-2 duration-500">
       <CardContent className="pt-0 -mb-4 px-4">
@@ -158,14 +270,76 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
           {/* Search Bar and Quick Actions */}
           <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 items-start lg:items-center">
             {/* Compact Search Input */}
-            <div className="relative w-full lg:w-1/2 animate-in fade-in-0 slide-in-from-left-2 duration-500 delay-100">
+            <div ref={inputWrapperRef} className="relative w-full lg:w-1/2 animate-in fade-in-0 slide-in-from-left-2 duration-500 delay-100">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
                 placeholder="Name, mobile, or case reference number..."
                 value={filters.keyword}
                 onChange={(e) => createFilterChangeHandler("keyword")(e.target.value)}
                 className="pl-10 h-9 text-sm border-2 border-border bg-background/80 focus:bg-background transition-all duration-300 hover:bg-background/90 rounded-lg"
+                onFocus={() => { if (suggestions.length > 0) { updateDropdownPosition(); setShowSuggestions(true) } }}
+                onBlur={() => { setTimeout(() => setShowSuggestions(false), 150) }}
+                onKeyDown={(e) => {
+                  if (!showSuggestions) return
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault()
+                    setActiveIndex((prev) => Math.min(prev + 1, suggestions.length - 1))
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault()
+                    setActiveIndex((prev) => Math.max(prev - 1, 0))
+                  } else if (e.key === 'Enter') {
+                    if (activeIndex >= 0 && activeIndex < suggestions.length) {
+                      e.preventDefault()
+                      handleSuggestionClick(suggestions[activeIndex])
+                    }
+                  } else if (e.key === 'Escape') {
+                    setShowSuggestions(false)
+                  }
+                }}
               />
+
+              {showSuggestions && dropdownRect && typeof window !== 'undefined' && createPortal(
+                <div
+                  className="absolute z-[2147483647] bg-popover/95 backdrop-blur-xl border border-border/60 rounded-2xl shadow-2xl max-h-96 overflow-auto ring-1 ring-black/5"
+                  style={{ top: dropdownRect.top, left: dropdownRect.left, width: dropdownRect.width, position: 'absolute' as const }}
+                >
+                  {suggestionsLoading && (
+                    <div className="px-4 py-3 text-sm text-muted-foreground">Searching…</div>
+                  )}
+                  {!suggestionsLoading && suggestions.length === 0 && (
+                    <div className="px-4 py-3 text-sm text-muted-foreground">No results</div>
+                  )}
+                  {!suggestionsLoading && suggestions.map((item, idx) => (
+                    <button
+                      key={item._id}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => handleSuggestionClick(item)}
+                      className={`w-full text-left px-4 py-3 flex items-center gap-3 ${activeIndex === idx ? 'bg-accent/50' : 'hover:bg-accent/40'} focus:bg-accent/50 focus:outline-none transition-colors ${idx > 0 ? 'border-t border-border/60' : ''}`}
+                      onMouseEnter={() => setActiveIndex(idx)}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-foreground flex items-center gap-2 min-w-0">
+                          <span className="truncate max-w-[80%]"><Highlight text={item.fullName} query={filters.keyword} /></span>
+                          <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">Case</span>
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis flex items-center gap-2">
+                          {item.age && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-muted text-foreground/80 max-w-[25%] overflow-hidden text-ellipsis whitespace-nowrap">Age: {item.age}</span>
+                          )}
+                          {item.gender && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-muted text-foreground/80 max-w-[35%] overflow-hidden text-ellipsis whitespace-nowrap">Gender: {item.gender}</span>
+                          )}
+                          {item.FIRNumber && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-muted text-foreground/80 max-w-[40%] overflow-hidden text-ellipsis whitespace-nowrap">Case Registration: <span className="truncate inline-block max-w-[70%]"><Highlight text={item.FIRNumber} query={filters.keyword} /></span></span>
+                          )}
+                        </div>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/70 shrink-0" />
+                    </button>
+                  ))}
+                </div>, document.body
+              )}
             </div>
 
             {/* Main Action Buttons + Advanced Filters Toggle */}

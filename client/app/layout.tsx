@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Rock_Salt } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Navbar } from "@/components/layout/navbar";
@@ -19,6 +19,13 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Handwritten/accent font close to "Rockybilly" vibe
+const accent = Rock_Salt({
+  variable: "--font-accent",
+  weight: "400",
+  subsets: ["latin"],
+});
+
 export const metadata: Metadata = {
   title: "FindMe - Missing Person Platform",
   description: "Find missing persons using AI technology and community support",
@@ -31,20 +38,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <ClerkProvider
-          appearance={{
-            elements: {
-              card: "bg-card border border-border text-foreground",
-              headerTitle: "text-foreground font-semibold",
-              headerSubtitle: "text-muted-foreground",
-              formButtonPrimary: "btn btn-primary h-10",
-              formFieldInput: "bg-background border border-border text-foreground",
-              footerActionText: "text-muted-foreground",
-              socialButtonsBlockButton: "border border-border bg-background text-foreground hover:bg-muted/50",
-            },
-          }}
-        >
+      <body className={`${geistSans.variable} ${geistMono.variable} ${accent.variable} antialiased`}>
+        <ClerkProvider>
           <ThemeProvider
             attribute="class"
             defaultTheme="light"
@@ -56,7 +51,7 @@ export default function RootLayout({
                 <ClientOnly>
                   <Navbar />
                 </ClientOnly>
-                <main className="flex-1 animate-in fade-in-0 slide-in-from-bottom-4 duration-1000 delay-200">
+                <main className="flex-1 pt-24 animate-in fade-in-0 slide-in-from-bottom-4 duration-1000 delay-200">
                   <OnboardingGate>
                     {children}
                   </OnboardingGate>

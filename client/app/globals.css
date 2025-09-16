@@ -402,5 +402,9 @@
     pointer-events: none;
   }
 
+}
 
+/* Accent font utility mapped to next/font variable */
+@layer utilities {
+  .font-accent { font-family: var(--font-accent), var(--font-sans); }
 }

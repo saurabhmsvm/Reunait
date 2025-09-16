@@ -1,10 +1,56 @@
 import Case from "../model/caseModel.js";
 import User from "../model/userModel.js";
+import HomepageSection from "../model/homepageModel.js";
 import { generateEmbeddings } from "../services/lambdaService.js";
 import { storeEmbeddings } from "../services/pineconeService.js";
 import { uploadToS3 } from "../services/s3Service.js";
 import { moderateImage } from "../services/contentSafetyService.js";
-import { config } from '../config/config.js';
+
+// Helper function to increment impact counter
+const incrementImpactCounter = async () => {
+    try {
+        // Find the impact section
+        const impactSection = await HomepageSection.findOne({ section: 'impact' });
+        
+        if (!impactSection) {
+            console.error('Impact section not found in database');
+            return;
+        }
+
+        // Find the "Cases Registered" stat
+        const casesRegisteredStat = impactSection.data.stats.find(stat => 
+            stat.label.includes('Cases Registered')
+        );
+
+        if (!casesRegisteredStat) {
+            console.error('Cases Registered stat not found in impact section');
+            return;
+        }
+
+        // Parse current value (e.g., "1,000+" → 1000)
+        const currentValue = casesRegisteredStat.value;
+        const numericValue = parseInt(currentValue.replace(/[^\d]/g, '')) || 0;
+        
+        // Increment by 1
+        const newValue = numericValue + 1;
+        
+        // Format back (e.g., 1001 → "1,001+")
+        const formattedValue = newValue.toLocaleString() + '+';
+        
+        // Update the value
+        casesRegisteredStat.value = formattedValue;
+        
+        // Mark the nested data object as modified
+        impactSection.markModified('data');
+        
+        // Save the updated section
+        await impactSection.save();
+        
+    } catch (error) {
+        console.error('Error updating impact counter:', error);
+        // Don't throw error to avoid breaking case registration
+    }
+};
 
 export const registerCase = async (req, res) => {
     try {
@@ -100,6 +146,9 @@ export const registerCase = async (req, res) => {
 
         // Save the case
         const savedCase = await newCase.save();
+
+        // Increment impact counter for cases registered
+        await incrementImpactCounter();
 
         // Add case creation notification
         const caseCreationNotification = {

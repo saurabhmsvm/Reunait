@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.3:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://192.168.1.3:3001';
 
 export interface Case {
   _id: string;
@@ -80,6 +80,7 @@ export interface CasesResponse {
 
 export interface CasesParams {
   page?: number;
+  limit?: number;
   country?: string;
   state?: string | null;
   city?: string | null;
@@ -107,6 +108,7 @@ export const fetchCases = async (params: CasesParams = {}): Promise<CasesRespons
     
     // Add parameters to URL
     if (params.page) searchParams.append('page', params.page.toString());
+    if (params.limit) searchParams.append('limit', params.limit.toString());
     if (params.country) searchParams.append('country', params.country);
     if (params.state && params.state !== "all") searchParams.append('state', params.state);
     if (params.city && params.city !== "all") searchParams.append('city', params.city);

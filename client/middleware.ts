@@ -7,6 +7,20 @@ const isAuthRoute = createRouteMatcher(['/sign-in(.*)', '/sign-up(.*)'])
 const isOnboardingRoute = createRouteMatcher(['/onboarding(.*)'])
 
 export default clerkMiddleware(async (auth, req) => {
+  // Check maintenance mode first
+  if (process.env.MAINTENANCE_MODE === 'true') {
+    // Rewrite all requests to the maintenance page
+    return NextResponse.rewrite(new URL('/maintenance.html', req.url), {
+      status: 503,
+      headers: {
+        'Retry-After': '3600', // 1 hour
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    })
+  }
+
   const { userId, sessionClaims } = await auth()
 
   // If not signed in, protect routes that require authentication
@@ -34,7 +48,7 @@ export default clerkMiddleware(async (auth, req) => {
         
         // Final fallback: check MongoDB via existing profile endpoint
         try {
-          const base = process.env.NEXT_PUBLIC_API_URL || "http://192.168.1.3:3001"
+          const base = process.env.NEXT_PUBLIC_BACKEND_URL || "http://192.168.1.3:3001"
           const response = await fetch(`${base}/users/profile`, {
             method: "GET",
             headers: {

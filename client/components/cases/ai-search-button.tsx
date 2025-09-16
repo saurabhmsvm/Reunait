@@ -38,7 +38,7 @@ export function AiSearchButton({ caseId, onSearchComplete, className }: AiSearch
         showError('Authentication token is missing. Please reload and sign in again.')
         return
       }
-      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.3:3001'
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://192.168.1.3:3001'
       const response = await fetch(`${backendUrl}/api/find-matches`, {
         method: 'POST',
         mode: 'cors',

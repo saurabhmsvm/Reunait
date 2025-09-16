@@ -13,7 +13,7 @@ interface CasesGridProps {
 
 // Optimized loading skeleton - matches actual case card dimensions
 const LoadingSkeleton = memo(() => (
-  <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-5 animate-in fade-in-0 duration-300">
+    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-8 animate-in fade-in-0 duration-300">
     {Array.from({ length: 6 }).map((_, index) => (
       <div key={index} className="overflow-hidden rounded-2xl border">
         {/* Image section - matches h-80 from actual case card */}
@@ -74,7 +74,7 @@ export const CasesGrid = memo(({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-5 animate-in fade-in-0 slide-in-from-bottom-4 duration-300">
+    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-8 animate-in fade-in-0 slide-in-from-bottom-4 duration-300">
       {cases.map((caseData, index) => (
         <CaseCard
           key={caseData._id}

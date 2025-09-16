@@ -110,7 +110,7 @@ export const useCaseActions = ({ data }: UseCaseActionsProps) => {
         date: data.dateMissingFound // date when person went missing or was found
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.3:3001'}/api/find-matches`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://192.168.1.3:3001'}/api/find-matches`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -11,6 +11,8 @@ import findMatchesRoutes from "./routes/find-matches.js"
 import userAuthRoutes from "./routes/user-auth.js"
 import reportRoutes from "./routes/report.js"
 import caseOwnerProfileRoutes from "./routes/caseOwnerProfile.js"
+import homepageRoutes from "./routes/homepage.js"
+import testimonialRoutes from "./routes/testimonial.js"
 import { clerkMiddleware } from "@clerk/express";
 import { rateLimiter } from "./middleware/rateLimiter.js";
 import { fileURLToPath } from 'url';
@@ -73,13 +75,13 @@ app.use("/api", findMatchesRoutes);
 app.use("/api", userAuthRoutes);
 app.use("/api", reportRoutes);
 app.use("/api", caseOwnerProfileRoutes);
+app.use("/api/homepage", homepageRoutes);
+app.use("/api/testimonials", testimonialRoutes);
 
 
 /*  MONGOOSE SETUP  */
 const PORT = process.env.PORT || 6001;
 mongoose.connect(process.env.MONGO_URL, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
     dbName: process.env.DB_NAME || "missing_found_db"
 }).then(() => {
     app.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT} and accessible from network`));

@@ -49,7 +49,7 @@ export default function SsoCompletePage() {
       try {
         const token = await getToken()
         if (token) {
-          const base = process.env.NEXT_PUBLIC_API_URL || "http://192.168.1.3:3001"
+          const base = process.env.NEXT_PUBLIC_BACKEND_URL || "http://192.168.1.3:3001"
           const res = await fetch(`${base}/api/users/profile`, { 
             headers: { Authorization: `Bearer ${token}` } 
           })

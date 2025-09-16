@@ -295,6 +295,7 @@ router.post("/webhooks/clerk", express.raw({ type: "application/json" }), async 
     const svixTimestamp = req.headers["svix-timestamp"]; // string | undefined
     const svixSignature = req.headers["svix-signature"]; // string | undefined
     if (!svixId || !svixTimestamp || !svixSignature) {
+        console.log("Missing Svix headers");
       return res.status(400).json({ success: false, message: "Missing Svix headers" });
     }
 
@@ -319,38 +320,44 @@ router.post("/webhooks/clerk", express.raw({ type: "application/json" }), async 
     // Handle webhook events for user provisioning and metadata updates
     if (type === "user.created") {
       const clerkUserId = data?.id;
-      const email = data?.email_addresses?.[0]?.email_address || data?.primary_email_address_id || "";
+      const emails = Array.isArray(data?.email_addresses) ? data.email_addresses : [];
+      const primaryId = data?.primary_email_address_id;
+      const primary = emails.find((e) => e?.id === primaryId);
+      const email = primary?.email_address || emails[0]?.email_address || "";
 
       if (clerkUserId) {
-        // 1. Create MongoDB record
-        await User.findOneAndUpdate(
-          { clerkUserId },
-          { $setOnInsert: { clerkUserId, email, onboardingCompleted: false } },
-          { upsert: true, new: false, setDefaultsOnInsert: true }
-        );
-        
-        // 2. Set initial Clerk metadata
+        if (email) {
+          await User.findOneAndUpdate(
+            { clerkUserId },
+            { $setOnInsert: { clerkUserId, email, onboardingCompleted: false } },
+            { upsert: true, new: false, setDefaultsOnInsert: true }
+          );
+        }
         try {
           await clerkClient.users.updateUserMetadata(clerkUserId, {
             publicMetadata: {
               onboardingCompleted: false,
-              role: null,
+              role: 'general_user',
               lastUpdated: new Date().toISOString()
             }
           });
         } catch (error) {
           console.error('Failed to set initial Clerk metadata:', error);
-          // Don't fail the webhook if metadata update fails
         }
       }
     } else if (type === "user.updated") {
       const clerkUserId = data?.id;
       if (clerkUserId) {
-        const email = data?.email_addresses?.[0]?.email_address || "";
-        await User.updateOne(
-          { clerkUserId },
-          { $set: { email } }
-        );
+        const emails = Array.isArray(data?.email_addresses) ? data.email_addresses : [];
+        const primaryId = data?.primary_email_address_id;
+        const primary = emails.find((e) => e?.id === primaryId);
+        const email = primary?.email_address || emails[0]?.email_address || "";
+        if (email) {
+          await User.updateOne(
+            { clerkUserId },
+            { $set: { email } }
+          );
+        }
       }
     } else if (type === "user.deleted") {
       const clerkUserId = data?.id;

@@ -55,7 +55,7 @@ export default function CaseOwnerProfilePage() {
         setLoading(true)
         const token = await getToken()
         if (!token) return
-        const base = process.env.NEXT_PUBLIC_API_URL || "http://192.168.1.3:3001"
+        const base = process.env.NEXT_PUBLIC_BACKEND_URL || "http://192.168.1.3:3001"
         const res = await fetch(`${base}/api/caseOwnerProfile?caseOwner=${caseOwner}`, {
           method: "GET",
           headers: { Authorization: `Bearer ${token}` },
@@ -112,7 +112,7 @@ export default function CaseOwnerProfilePage() {
       setCasesLoading(true)
       const token = await getToken()
       if (!token) return
-      const base = process.env.NEXT_PUBLIC_API_URL || "http://192.168.1.3:3001"
+      const base = process.env.NEXT_PUBLIC_BACKEND_URL || "http://192.168.1.3:3001"
       const res = await fetch(`${base}/api/caseOwnerProfile?caseOwner=${caseOwner}&page=${page}`, {
         method: "GET",
         headers: { Authorization: `Bearer ${token}` },
