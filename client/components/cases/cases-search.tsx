@@ -8,11 +8,12 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
 import { SmartDateRangePicker } from "@/components/ui/smart-date-range-picker"
-import { Search, User, Shield, Calendar, MapPin, ChevronDown, ChevronUp, Filter, ChevronRight } from "lucide-react"
+import { Search, User, Shield, Calendar, MapPin, ChevronDown, ChevronUp, Filter, ChevronRight, X, Hash } from "lucide-react"
 import { CountriesStatesService } from "@/lib/countries-states"
-import { LocationService } from "@/lib/location"
+import { locationService } from "@/lib/location-service"
 import { fetchCases, type CasesParams, type Case } from "@/lib/api"
 import { useRouter } from "next/navigation"
+import { useUser } from "@clerk/nextjs"
 
 export interface SearchFilters {
   keyword: string
@@ -29,6 +30,7 @@ interface CasesSearchProps {
   onSearch: (filters: SearchFilters) => void
   onClear: () => void
   loading?: boolean
+  hasCasesDisplayed?: boolean
 }
 
 // Initial filter state
@@ -43,7 +45,7 @@ const INITIAL_FILTERS: SearchFilters = {
   dateTo: undefined
 }
 
-export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchProps) {
+export function CasesSearch({ onSearch, onClear, loading = false, hasCasesDisplayed = false }: CasesSearchProps) {
   const [filters, setFilters] = useState<SearchFilters>(INITIAL_FILTERS)
   const [countries, setCountries] = useState<string[]>([])
   const [states, setStates] = useState<string[]>([])
@@ -57,6 +59,24 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
   const router = useRouter()
   const inputWrapperRef = useRef<HTMLDivElement | null>(null)
   const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; width: number } | null>(null)
+  const { user } = useUser()
+
+  // Get user role from Clerk metadata
+  const userRole = useMemo(() => {
+    if (!user?.publicMetadata) return 'general_user'
+    return (user.publicMetadata as any)?.role || 'general_user'
+  }, [user])
+
+  // Check if current search is a user search (police typing "user:")
+  const isUserSearch = useMemo(() => {
+    const keyword = (filters.keyword || "").toLowerCase().trim()
+    return userRole === 'police' && keyword.startsWith('user:')
+  }, [filters.keyword, userRole])
+
+  // Show dropdown only when: police + user: search + no cases displayed
+  const shouldShowDropdown = useMemo(() => {
+    return isUserSearch && !hasCasesDisplayed
+  }, [isUserSearch, hasCasesDisplayed])
 
   const updateDropdownPosition = useCallback(() => {
     const el = inputWrapperRef.current
@@ -67,7 +87,7 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
     setDropdownRect({ top, left, width: rect.width })
   }, [])
 
-  // Memoized active filters count
+  // Memoized active filters count (excludes status since it has dedicated buttons)
   const activeFiltersCount = useMemo(() => {
     let count = 0
     if (filters.country !== "India") count++
@@ -97,7 +117,7 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
     [createFilterChangeHandler, filters.status]
   )
 
-  // Initialize data and location
+  // Initialize data
   useEffect(() => {
     const initializeData = () => {
       // Initialize countries and states
@@ -108,20 +128,36 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
       setCountries(allCountries)
       setStates(defaultStates)
       setCities(defaultCities)
-
-      // Load saved location
-      const savedLocation = LocationService.getSavedLocation()
-      const defaults = LocationService.getFilterDefaults()
-      
-      setFilters(prev => ({
-        ...prev,
-        country: savedLocation?.country || defaults.country,
-        state: "all",
-        city: "all"
-      }))
     }
 
     initializeData()
+  }, [])
+
+  // Update filters when cached location is available
+  useEffect(() => {
+    const updateFiltersFromLocation = () => {
+      const storedLocation = localStorage.getItem('userLocation')
+      if (storedLocation) {
+        const locationData = JSON.parse(storedLocation)
+        const locationFilters = {
+          country: locationData.country,
+          state: locationData.state !== 'Unknown' ? locationData.state : 'all',
+          city: locationData.city !== 'Unknown' ? locationData.city : 'all'
+        }
+        setFilters(prev => ({ ...prev, ...locationFilters }))
+        
+        // Update states and cities based on location
+        const locationStates = CountriesStatesService.getStates(locationData.country)
+        setStates(locationStates)
+        
+        if (locationData.state !== 'Unknown') {
+          const locationCities = CountriesStatesService.getCities(locationData.country, locationData.state)
+          setCities(locationCities)
+        }
+      }
+    }
+
+    updateFiltersFromLocation()
   }, [])
 
   // Update states when country changes
@@ -167,16 +203,79 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
     onClear()
   }, [onClear])
 
+  // Auto-search when filters change (except keyword for debounced suggestions)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      onSearch(filters)
+    }, 100) // Small delay to batch multiple filter changes
+
+    return () => clearTimeout(timeoutId)
+  }, [filters.country, filters.state, filters.city, filters.status, filters.gender, filters.dateFrom, filters.dateTo, onSearch])
+
+  // Get active filter chips (excludes status since it has dedicated buttons)
+  const getActiveFilters = useCallback(() => {
+    const active: Array<{ key: string; label: string; value: string }> = []
+    
+    if (filters.country !== "India") {
+      active.push({ key: "country", label: "Country", value: filters.country })
+    }
+    if (filters.state !== "all") {
+      active.push({ key: "state", label: "State", value: filters.state })
+    }
+    if (filters.city !== "all") {
+      active.push({ key: "city", label: "City", value: filters.city })
+    }
+    // Note: Status is excluded since it has dedicated Missing/Found buttons
+    if (filters.gender && filters.gender !== "all") {
+      active.push({ key: "gender", label: "Gender", value: filters.gender })
+    }
+    if (filters.dateFrom || filters.dateTo) {
+      const dateRange = `${filters.dateFrom?.toLocaleDateString() || "..."} - ${filters.dateTo?.toLocaleDateString() || "..."}`
+      active.push({ key: "dateRange", label: "Date Range", value: dateRange })
+    }
+    
+    return active
+  }, [filters])
+
+  const removeFilter = useCallback((key: string) => {
+    setFilters(prev => {
+      const newFilters = { ...prev }
+      switch (key) {
+        case "country":
+          newFilters.country = "India"
+          break
+        case "state":
+          newFilters.state = "all"
+          break
+        case "city":
+          newFilters.city = "all"
+          break
+        case "status":
+          newFilters.status = undefined
+          break
+        case "gender":
+          newFilters.gender = undefined
+          break
+        case "dateRange":
+          newFilters.dateFrom = undefined
+          newFilters.dateTo = undefined
+          break
+      }
+      return newFilters
+    })
+  }, [])
+
   const toggleAdvancedFilters = useCallback(() => {
     setIsAdvancedOpen(prev => !prev)
   }, [])
 
-  // Debounced lightweight suggestions under the search input
+  // Debounced user search suggestions (only for police typing "user:")
   useEffect(() => {
     const keyword = (filters.keyword || "").trim()
     if (debounceRef.current) clearTimeout(debounceRef.current)
 
-    if (keyword.length === 0) {
+    // Only show suggestions for police user searches
+    if (!isUserSearch || keyword.length === 0) {
       setSuggestions([])
       setShowSuggestions(false)
       return
@@ -185,20 +284,18 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
     debounceRef.current = setTimeout(async () => {
       try {
         setSuggestionsLoading(true)
-        const params: CasesParams = {
-          page: 1,
-          limit: 8,
-          country: filters.country,
-          state: filters.state === "all" ? null : filters.state,
-          city: filters.city === "all" ? null : filters.city,
-          status: filters.status && filters.status !== "all" ? filters.status : undefined,
-          gender: filters.gender && filters.gender !== "all" ? filters.gender : undefined,
-          dateFrom: filters.dateFrom,
-          dateTo: filters.dateTo,
-          keyword
+        // Extract search term after "user:"
+        const searchTerm = keyword.substring(5).trim() // Remove "user:" prefix
+        
+        if (searchTerm.length === 0) {
+          setSuggestions([])
+          setShowSuggestions(false)
+          return
         }
-        const res = await fetchCases(params)
-        setSuggestions(res.data || [])
+
+        // TODO: Implement user search API call
+        // For now, show empty suggestions
+        setSuggestions([])
         updateDropdownPosition()
         setShowSuggestions(true)
       } catch (e) {
@@ -207,16 +304,32 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
       } finally {
         setSuggestionsLoading(false)
       }
-    }, 300)
+    }, 300) // Restored original 300ms debouncing
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
-  }, [filters.keyword, filters.country, filters.state, filters.city, filters.status, filters.gender, filters.dateFrom, filters.dateTo])
+  }, [filters.keyword, isUserSearch, updateDropdownPosition])
+
+  // Auto-search when keyword changes (restored original debouncing)
+  useEffect(() => {
+    const keyword = (filters.keyword || "").trim()
+    if (keyword.length === 0) {
+      // If keyword is cleared, search immediately
+      onSearch(filters)
+      return
+    }
+    
+    const timeoutId = setTimeout(() => {
+      onSearch(filters)
+    }, 300) // Restored original 300ms debouncing
+
+    return () => clearTimeout(timeoutId)
+  }, [filters.keyword, onSearch])
 
   // Keep dropdown aligned on resize/scroll while visible
   useEffect(() => {
-    if (!showSuggestions) return
+    if (!shouldShowDropdown) return
     updateDropdownPosition()
     const onScroll = () => updateDropdownPosition()
     const onResize = () => updateDropdownPosition()
@@ -226,7 +339,7 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
       window.removeEventListener('scroll', onScroll, true)
       window.removeEventListener('resize', onResize)
     }
-  }, [showSuggestions, updateDropdownPosition])
+  }, [shouldShowDropdown, updateDropdownPosition])
 
   const handleSuggestionClick = useCallback((item: Case) => {
     setShowSuggestions(false)
@@ -267,17 +380,18 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
     <Card className="border border-border bg-card/90 backdrop-blur-md animate-in fade-in-0 slide-in-from-top-2 duration-500">
       <CardContent className="pt-0 -mb-4 px-4">
         <div className="space-y-4">
+
           {/* Search Bar and Quick Actions */}
-          <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 items-start lg:items-center">
+          <div className="flex flex-col md:flex-row gap-3 md:gap-4 lg:gap-6 items-stretch md:items-center">
             {/* Compact Search Input */}
-            <div ref={inputWrapperRef} className="relative w-full lg:w-1/2 animate-in fade-in-0 slide-in-from-left-2 duration-500 delay-100">
+            <div ref={inputWrapperRef} className="relative w-full md:flex-1 lg:flex-1 animate-in fade-in-0 slide-in-from-left-2 duration-500 delay-100">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
                 placeholder="Name, mobile, or case reference number..."
                 value={filters.keyword}
                 onChange={(e) => createFilterChangeHandler("keyword")(e.target.value)}
-                className="pl-10 h-9 text-sm border-2 border-border bg-background/80 focus:bg-background transition-all duration-300 hover:bg-background/90 rounded-lg"
-                onFocus={() => { if (suggestions.length > 0) { updateDropdownPosition(); setShowSuggestions(true) } }}
+                className="pl-10 h-10 text-sm md:text-base border-2 border-border bg-background/80 focus:bg-background transition-all duration-300 hover:bg-background/90 rounded-lg"
+                onFocus={() => { if (shouldShowDropdown) { updateDropdownPosition(); setShowSuggestions(true) } }}
                 onBlur={() => { setTimeout(() => setShowSuggestions(false), 150) }}
                 onKeyDown={(e) => {
                   if (!showSuggestions) return
@@ -298,16 +412,16 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
                 }}
               />
 
-              {showSuggestions && dropdownRect && typeof window !== 'undefined' && createPortal(
+              {shouldShowDropdown && showSuggestions && dropdownRect && typeof window !== 'undefined' && createPortal(
                 <div
                   className="absolute z-[2147483647] bg-popover/95 backdrop-blur-xl border border-border/60 rounded-2xl shadow-2xl max-h-96 overflow-auto ring-1 ring-black/5"
                   style={{ top: dropdownRect.top, left: dropdownRect.left, width: dropdownRect.width, position: 'absolute' as const }}
                 >
                   {suggestionsLoading && (
-                    <div className="px-4 py-3 text-sm text-muted-foreground">Searching…</div>
+                    <div className="px-4 py-3 text-sm text-muted-foreground">Searching users…</div>
                   )}
                   {!suggestionsLoading && suggestions.length === 0 && (
-                    <div className="px-4 py-3 text-sm text-muted-foreground">No results</div>
+                    <div className="px-4 py-3 text-sm text-muted-foreground">No users found</div>
                   )}
                   {!suggestionsLoading && suggestions.map((item, idx) => (
                     <button
@@ -321,7 +435,7 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-foreground flex items-center gap-2 min-w-0">
                           <span className="truncate max-w-[80%]"><Highlight text={item.fullName} query={filters.keyword} /></span>
-                          <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">Case</span>
+                          <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">User</span>
                         </div>
                         <div className="mt-1 text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis flex items-center gap-2">
                           {item.age && (
@@ -329,9 +443,6 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
                           )}
                           {item.gender && (
                             <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-muted text-foreground/80 max-w-[35%] overflow-hidden text-ellipsis whitespace-nowrap">Gender: {item.gender}</span>
-                          )}
-                          {item.FIRNumber && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-muted text-foreground/80 max-w-[40%] overflow-hidden text-ellipsis whitespace-nowrap">Case Registration: <span className="truncate inline-block max-w-[70%]"><Highlight text={item.FIRNumber} query={filters.keyword} /></span></span>
                           )}
                         </div>
                       </div>
@@ -343,7 +454,7 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
             </div>
 
             {/* Main Action Buttons + Advanced Filters Toggle */}
-            <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-3 lg:gap-2 items-center w-full lg:w-1/2 sm:justify-evenly lg:justify-between animate-in fade-in-0 slide-in-from-left-2 duration-500 delay-200">
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap md:flex md:flex-nowrap gap-2 sm:gap-3 lg:gap-2 items-center w-full md:w-auto lg:w-1/2 sm:justify-evenly md:justify-start lg:justify-between md:ml-3 animate-in fade-in-0 slide-in-from-left-2 duration-500 delay-200">
               <Button
                 variant={filters.status === "missing" ? "default" : "outline"}
                 size="sm"
@@ -362,14 +473,18 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
                 <Shield className="w-3 h-3 sm:w-4 sm:h-4" />
                 Found
               </Button>
+              
+              {/* Clear All Filters Button (replaces Search button) */}
               <Button 
-                onClick={handleSearch} 
-                disabled={loading}
-                className="flex items-center gap-1 sm:gap-1.5 h-9 px-2 sm:px-3 lg:px-3 rounded-lg transition-all duration-300 hover:scale-105 shadow-md bg-gradient-to-r from-primary to-primary/90 text-primary-foreground border-0 text-xs sm:text-sm font-semibold min-w-[120px] sm:min-w-[140px]"
+                variant="outline"
+                size="sm"
+                onClick={handleClear}
+                disabled={activeFiltersCount === 0}
+                className="flex items-center gap-1 sm:gap-1.5 h-9 px-2 sm:px-3 lg:px-3 rounded-lg transition-all duration-300 hover:scale-105 text-xs sm:text-sm font-medium border-2 min-w-[120px] sm:min-w-[140px] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:bg-background"
               >
-                <Search className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">{loading ? "Searching..." : "Search Cases"}</span>
-                <span className="sm:hidden">{loading ? "Searching..." : "Search"}</span>
+                <X className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Clear All</span>
+                <span className="sm:hidden">Clear</span>
               </Button>
               
               {/* Advanced Filters Toggle */}
@@ -400,20 +515,20 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
           </div>
 
           {/* Advanced Filters Section - Optimized Animation */}
-          <div className={`overflow-hidden transition-all duration-200 ease-out ${isAdvancedOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
+          <div className={`overflow-hidden transition-all duration-200 ease-out ${isAdvancedOpen ? 'max-h-[30rem] opacity-100' : 'max-h-0 opacity-0'}`}>
             {/* Subtle Separator */}
             <div className="border-t border-border/30 mx-2 mt-2"></div>
 
             {/* Location Filters and Date Range */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 pt-4">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 pt-4">
             {/* Country Filter */}
-            <div className="space-y-1.5">
-              <Label className="text-sm font-semibold text-foreground flex items-center gap-1.5 justify-center">
+            <div className="space-y-1.5 min-w-0">
+              <Label className="text-xs sm:text-sm font-semibold text-foreground flex items-center gap-1.5 justify-center">
                 <MapPin className="w-4 h-4" />
                 Country
               </Label>
               <Select value={filters.country} onValueChange={(value) => createFilterChangeHandler("country")(value)}>
-                <SelectTrigger className="h-9 w-full border-2 border-border bg-background/80 focus:bg-background transition-all duration-300 hover:bg-background/90 rounded-lg text-sm focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0 focus-visible:border-ring">
+                <SelectTrigger className="h-10 w-full border-2 border-border bg-background/80 focus:bg-background transition-all duration-300 hover:bg-background/90 rounded-lg text-sm focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0 focus-visible:border-ring">
                   <SelectValue placeholder="Select country" className="truncate" />
                 </SelectTrigger>
                 <SelectContent className="max-h-60">
@@ -427,10 +542,10 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
             </div>
 
             {/* State Filter */}
-            <div className="space-y-1.5">
-              <Label className="text-sm font-semibold text-foreground text-center block">State</Label>
+            <div className="space-y-1.5 min-w-0">
+              <Label className="text-xs sm:text-sm font-semibold text-foreground text-center block">State</Label>
               <Select value={filters.state} onValueChange={(value) => createFilterChangeHandler("state")(value)}>
-                <SelectTrigger className="h-9 w-full border-2 border-border bg-background/80 focus:bg-background transition-all duration-300 hover:bg-background/90 rounded-lg text-sm focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0 focus-visible:border-ring">
+                <SelectTrigger className="h-10 w-full border-2 border-border bg-background/80 focus:bg-background transition-all duration-300 hover:bg-background/90 rounded-lg text-sm focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0 focus-visible:border-ring">
                   <SelectValue placeholder="Select state" className="truncate" />
                 </SelectTrigger>
                 <SelectContent className="max-h-60">
@@ -445,10 +560,10 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
             </div>
 
             {/* City Filter */}
-            <div className="space-y-1.5">
-              <Label className="text-sm font-semibold text-foreground text-center block">City</Label>
+            <div className="space-y-1.5 min-w-0">
+              <Label className="text-xs sm:text-sm font-semibold text-foreground text-center block">City</Label>
               <Select value={filters.city} onValueChange={(value) => createFilterChangeHandler("city")(value)}>
-                <SelectTrigger className="h-9 w-full border-2 border-border bg-background/80 focus:bg-background transition-all duration-300 hover:bg-background/90 rounded-lg text-sm focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0 focus-visible:border-ring">
+                <SelectTrigger className="h-10 w-full border-2 border-border bg-background/80 focus:bg-background transition-all duration-300 hover:bg-background/90 rounded-lg text-sm focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0 focus-visible:border-ring">
                   <SelectValue placeholder="Select city" className="truncate" />
                 </SelectTrigger>
                 <SelectContent className="max-h-60">
@@ -463,23 +578,24 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
             </div>
 
             {/* Gender Filter */}
-            <div className="space-y-1.5">
-              <Label className="text-sm font-semibold text-foreground text-center block">Gender</Label>
+            <div className="space-y-1.5 min-w-0">
+              <Label className="text-xs sm:text-sm font-semibold text-foreground text-center block">Gender</Label>
               <Select value={filters.gender || "all"} onValueChange={(value) => createFilterChangeHandler("gender")(value)}>
-                <SelectTrigger className="h-9 w-full border-2 border-border bg-background/80 focus:bg-background transition-all duration-300 hover:bg-background/90 rounded-lg text-sm focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0 focus-visible:border-ring">
+                <SelectTrigger className="h-10 w-full border-2 border-border bg-background/80 focus:bg-background transition-all duration-300 hover:bg-background/90 rounded-lg text-sm focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0 focus-visible:border-ring">
                   <SelectValue placeholder="Select gender" className="truncate" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all" className="text-sm">All Genders</SelectItem>
                   <SelectItem value="male" className="text-sm">Male</SelectItem>
                   <SelectItem value="female" className="text-sm">Female</SelectItem>
+                  <SelectItem value="other" className="text-sm">Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Smart Date Range Picker */}
-            <div className="space-y-1.5">
-              <Label className="text-sm font-semibold text-foreground text-center block">Date Range</Label>
+            <div className="space-y-1.5 min-w-0 col-span-2 sm:col-span-1">
+              <Label className="text-xs sm:text-sm font-semibold text-foreground text-center block">Date Range</Label>
               <SmartDateRangePicker
                 dateFrom={filters.dateFrom}
                 dateTo={filters.dateTo}
@@ -493,6 +609,33 @@ export function CasesSearch({ onSearch, onClear, loading = false }: CasesSearchP
             </div>
             </div>
           </div>
+
+          {/* Active Filter Chips */}
+          {getActiveFilters().length > 0 && (
+            <div className="-mx-1 px-1">
+              <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap sm:flex-wrap sm:overflow-visible sm:whitespace-normal">
+                <span className="text-sm text-muted-foreground font-medium flex-shrink-0">Active filters:</span>
+                {getActiveFilters().map((filter) => (
+                  <div
+                    key={filter.key}
+                    className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary border border-primary/20 rounded-full text-xs font-medium flex-shrink-0 sm:flex-shrink"
+                    title={`${filter.label}: ${filter.value}`}
+                  >
+                    <span className="max-w-[60vw] sm:max-w-xs md:max-w-none truncate">
+                      {filter.label}: {filter.value}
+                    </span>
+                    <button
+                      onClick={() => removeFilter(filter.key)}
+                      className="ml-1 hover:bg-primary/20 rounded-full p-0.5 transition-colors"
+                      aria-label={`Remove ${filter.label}`}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

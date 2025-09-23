@@ -115,7 +115,7 @@ export function SmartDateRangePicker({
           numberOfMonths={1}
           className="rounded-md border"
           captionLayout="dropdown"
-          defaultMonth={new Date(1990, 0, 1)}
+          defaultMonth={new Date()}
           formatters={{
             formatYearDropdown: (date) => date.getFullYear().toString(),
             formatMonthDropdown: (date) => date.toLocaleString("default", { month: "short" }),

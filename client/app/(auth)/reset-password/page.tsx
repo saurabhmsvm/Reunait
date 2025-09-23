@@ -2,17 +2,20 @@
 
 import { useState, useEffect } from "react"
 import { useSignIn, useAuth } from "@clerk/nextjs"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useToast } from "@/contexts/toast-context"
 import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from "@/components/ui/input-otp"
+import { createPortal } from "react-dom"
+import { SimpleLoader } from "@/components/ui/simple-loader"
 
 export default function ResetPasswordPage() {
   const router = useRouter()
   const search = useSearchParams()
+  const pathname = usePathname()
   const returnTo = (search?.get("returnTo")
     || search?.get("returnBackUrl")
     || search?.get("redirect_url")
@@ -31,6 +34,19 @@ export default function ResetPasswordPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [resendLoading, setResendLoading] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Hide loader when route changes
+  useEffect(() => {
+    if (isProcessing) {
+      setIsProcessing(false)
+    }
+  }, [pathname])
 
   const requestCode = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -40,17 +56,20 @@ export default function ResetPasswordPage() {
     }
     setError(null)
     setLoading(true)
+    setIsProcessing(true)
     try {
       const identifier = email.trim()
       await signIn.create({ strategy: "reset_password_email_code", identifier })
       setStep("verify")
       showSuccess("If this email exists, we sent a verification code.")
       setResendCooldown(30)
+      setIsProcessing(false) // Clear loader when transitioning to verify step
     } catch (err: any) {
       // Show neutral message; don't reveal if email exists
       setStep("verify")
       showSuccess("If this email exists, we sent a verification code.")
       setResendCooldown(30)
+      setIsProcessing(false) // Clear loader when transitioning to verify step
     } finally {
       setLoading(false)
     }
@@ -64,21 +83,25 @@ export default function ResetPasswordPage() {
     }
     setError(null)
     setLoading(true)
+    setIsProcessing(true)
     try {
       const normalized = code.replace(/\D/g, "")
       if (normalized.length !== 6) {
         showError("Enter the 6-digit code.")
         setLoading(false)
+        setIsProcessing(false)
         return
       }
       if (password.length < 7) {
         showError("Password must be at least 7 characters.")
         setLoading(false)
+        setIsProcessing(false)
         return
       }
       if (password !== confirmPassword) {
         showError("Passwords do not match.")
         setLoading(false)
+        setIsProcessing(false)
         return
       }
       const res = await signIn.attemptFirstFactor({ strategy: "reset_password_email_code", code: normalized, password })
@@ -103,6 +126,7 @@ export default function ResetPasswordPage() {
           ? "Code expired. Please request a new code."
           : "Verification failed. Check the code and try again."
       showError(msg)
+      setIsProcessing(false)
     } finally {
       setLoading(false)
     }
@@ -135,7 +159,16 @@ export default function ResetPasswordPage() {
   }, [resendCooldown])
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 md:px-4 lg:px-8 py-16 flex justify-center">
+    <>
+      {/* Full Screen Loader with Background Blur (Portal to body) */}
+      {isProcessing && mounted && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-md">
+          <SimpleLoader />
+        </div>,
+        document.body
+      )}
+      
+      <div className="container mx-auto px-4 sm:px-6 md:px-4 lg:px-8 py-16 flex justify-center">
       <div className="w-full max-w-md">
         <div className="rounded-xl border border-border bg-card p-6 sm:p-7 shadow-sm">
           <h1 className="text-2xl font-semibold tracking-tight text-center">Reset your password</h1>
@@ -149,8 +182,8 @@ export default function ResetPasswordPage() {
                 <Label htmlFor="email">Email</Label>
                 <Input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
               </div>
-              <Button type="submit" className="w-full h-10 cursor-pointer" disabled={loading || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !isLoaded}>
-                {loading ? "Sending code..." : "Send code"}
+              <Button type="submit" className="w-full h-10 cursor-pointer" disabled={loading || isProcessing || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !isLoaded}>
+                Send code
               </Button>
             </form>
           ) : (
@@ -211,15 +244,15 @@ export default function ResetPasswordPage() {
               )}
               <div className="flex items-center justify-between">
                 <Link href="/sign-in" className="text-xs text-muted-foreground hover:text-foreground cursor-pointer">Back to sign in</Link>
-                <Button type="submit" className="h-10 cursor-pointer" disabled={loading || code.replace(/\D/g, "").length !== 6 || password.length < 7 || password !== confirmPassword || !isLoaded}>
-                  {loading ? "Resetting..." : "Reset password"}
+                <Button type="submit" className="h-10 cursor-pointer" disabled={loading || isProcessing || code.replace(/\D/g, "").length !== 6 || password.length < 7 || password !== confirmPassword || !isLoaded}>
+                  Reset password
                 </Button>
               </div>
               <div className="flex items-center justify-center">
                 {resendCooldown > 0 ? (
                   <span className="text-xs text-muted-foreground text-center">Resend code in {String(Math.floor(resendCooldown / 60)).padStart(1, '0')}:{String(resendCooldown % 60).padStart(2, '0')}</span>
                 ) : (
-                  <Button type="button" variant="ghost" className="h-auto p-0 text-sm text-primary cursor-pointer" onClick={resendCode} disabled={resendLoading}>
+                  <Button type="button" variant="ghost" className="h-auto p-0 text-sm text-primary cursor-pointer" onClick={resendCode} disabled={resendLoading || isProcessing}>
                     {resendLoading ? "Resending..." : "Resend code"}
                   </Button>
                 )}
@@ -229,6 +262,7 @@ export default function ResetPasswordPage() {
         </div>
       </div>
     </div>
+    </>
   )
 }
 

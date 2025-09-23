@@ -7,6 +7,9 @@ import { useRouter } from 'next/navigation'
 import { useUser, useClerk, useReverification } from '@clerk/nextjs'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { SimpleLoader } from '@/components/ui/simple-loader'
+import { createPortal } from 'react-dom'
+import { useNavigationLoader } from '@/hooks/use-navigation-loader'
 
 export function AccountMenu() {
     const router = useRouter()
@@ -14,6 +17,8 @@ export function AccountMenu() {
     const { signOut, client, openUserProfile } = useClerk()
     const [isManageOpen, setIsManageOpen] = React.useState(false)
     const [activeTab, setActiveTab] = React.useState<'profile' | 'security'>('profile')
+    const [mounted, setMounted] = React.useState(false)
+    const { isLoading, startLoading } = useNavigationLoader()
     const [showPhotoCard, setShowPhotoCard] = React.useState(false)
     const [selectedFile, setSelectedFile] = React.useState<File | null>(null)
     const [previewUrl, setPreviewUrl] = React.useState<string | null>(null)
@@ -32,6 +37,15 @@ export function AccountMenu() {
     const [signOutAll, setSignOutAll] = React.useState(true)
     const isTooShort = newPassword.length > 0 && newPassword.length < 8
     const isMismatch = confirmPassword.length > 0 && newPassword !== confirmPassword
+
+    React.useEffect(() => {
+        setMounted(true)
+    }, [])
+
+    const handleProfileClick = () => {
+        startLoading()
+        router.push('/profile')
+    }
     const isPasswordValid = newPassword.length >= 8 && newPassword === confirmPassword
     const performPasswordUpdate = useReverification(async () => {
         const anyUser = user as unknown as { updatePassword?: (args: { newPassword: string; signOutOfOtherSessions?: boolean; currentPassword?: string }) => Promise<void> }
@@ -71,6 +85,13 @@ export function AccountMenu() {
 
     return (
         <>
+            {/* Full Screen Loader with Background Blur (Portal to body) */}
+            {mounted && isLoading && createPortal(
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-md">
+                    <SimpleLoader />
+                </div>,
+                document.body
+            )}
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button 
@@ -92,8 +113,8 @@ export function AccountMenu() {
                         {email ? <span className="text-xs text-muted-foreground truncate">{email}</span> : null}
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild className="cursor-pointer">
-                        <Link href="/profile">Profile</Link>
+                    <DropdownMenuItem className="cursor-pointer" onClick={handleProfileClick}>
+                        Profile
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setIsManageOpen(true)} className="cursor-pointer">Manage account</DropdownMenuItem>
                     <DropdownMenuSeparator />

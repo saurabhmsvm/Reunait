@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useSignIn, useAuth } from "@clerk/nextjs"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,10 +10,13 @@ import Link from "next/link"
 import { Eye, EyeOff } from "lucide-react"
 import { CaptchaRegion } from "@/components/auth/CaptchaRegion"
 import { getOnboardingStatus } from "@/lib/clerk-metadata"
+import { createPortal } from "react-dom"
+import { SimpleLoader } from "@/components/ui/simple-loader"
 
 export default function SignInCatchAllPage() {
   const router = useRouter()
   const search = useSearchParams()
+  const pathname = usePathname()
   const rawReturnTo = (search?.get("returnTo")
     || search?.get("returnBackUrl")
     || search?.get("redirect_url")
@@ -50,6 +53,45 @@ export default function SignInCatchAllPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [isNavigating, setIsNavigating] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const [isAuthenticating, setIsAuthenticating] = useState(false)
+  const [isNavigatingToReset, setIsNavigatingToReset] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Hide loader when route changes
+  useEffect(() => {
+    if (isNavigating) {
+      setIsNavigating(false)
+    }
+  }, [pathname])
+
+  // Hide authentication loader when route changes
+  useEffect(() => {
+    if (isAuthenticating) {
+      setIsAuthenticating(false)
+    }
+  }, [pathname])
+
+  // Hide reset password navigation loader when route changes
+  useEffect(() => {
+    if (isNavigatingToReset) {
+      setIsNavigatingToReset(false)
+    }
+  }, [pathname])
+
+  const handleSignUpClick = () => {
+    setIsNavigating(true)
+    router.push(`/sign-up?returnTo=${encodeURIComponent(returnTo)}`)
+  }
+
+  const handleForgotPasswordClick = () => {
+    setIsNavigatingToReset(true)
+    router.push(`/reset-password?returnTo=${encodeURIComponent(returnTo)}`)
+  }
 
   const routeBasedOnOnboarding = async () => {
     try {
@@ -100,6 +142,7 @@ export default function SignInCatchAllPage() {
     if (!isSignInLoaded) return
     setError(null)
     setLoading(true)
+    setIsAuthenticating(true)
     try {
       const res = await signIn.create({ identifier: email, password })
       if (res.status === "complete") {
@@ -107,9 +150,11 @@ export default function SignInCatchAllPage() {
         await routeBasedOnOnboarding()
       } else {
         setError("Additional steps required. Please use the default sign-in.")
+        setIsAuthenticating(false)
       }
     } catch (err: any) {
       setError(err?.errors?.[0]?.message || "Sign in failed. Check your credentials.")
+      setIsAuthenticating(false)
     } finally {
       setLoading(false)
     }
@@ -117,6 +162,7 @@ export default function SignInCatchAllPage() {
 
   const handleGoogle = async () => {
     if (!isSignInLoaded) return
+    setIsAuthenticating(true)
     try {
       await signIn.authenticateWithRedirect({
         strategy: "oauth_google",
@@ -125,11 +171,21 @@ export default function SignInCatchAllPage() {
       })
     } catch (err: any) {
       setError(err?.errors?.[0]?.message || "Google sign-in failed.")
+      setIsAuthenticating(false)
     }
   }
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 md:px-4 lg:px-8 py-16 flex justify-center">
+    <>
+      {/* Full Screen Loader with Background Blur (Portal to body) */}
+      {(isNavigating || isAuthenticating || isNavigatingToReset) && mounted && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-md">
+          <SimpleLoader />
+        </div>,
+        document.body
+      )}
+      
+      <div className="container mx-auto px-4 sm:px-6 md:px-4 lg:px-8 py-16 flex justify-center">
       <div className="w-full max-w-md">
         <div className="rounded-xl border border-border bg-card p-6 sm:p-7 shadow-sm">
           <h1 className="text-2xl font-semibold tracking-tight text-center">Welcome back</h1>
@@ -171,13 +227,17 @@ export default function SignInCatchAllPage() {
                 </button>
               </div>
               <div className="flex justify-end">
-                <Link href={`/reset-password?returnTo=${encodeURIComponent(returnTo)}`} className="text-xs text-primary hover:underline cursor-pointer">
+                <button 
+                  onClick={handleForgotPasswordClick}
+                  disabled={isNavigatingToReset}
+                  className="text-xs text-primary hover:underline cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
+                >
                   Forgot password?
-                </Link>
+                </button>
               </div>
             </div>
-            <Button type="submit" className="w-full h-10 cursor-pointer" disabled={loading} aria-busy={loading}>
-              {loading ? "Signing in..." : "Sign In"}
+            <Button type="submit" className="w-full h-10 cursor-pointer" disabled={loading || isAuthenticating} aria-busy={loading || isAuthenticating}>
+              Sign In
             </Button>
           </form>
 
@@ -189,18 +249,25 @@ export default function SignInCatchAllPage() {
             <div className="h-px w-full bg-border" />
           </div>
 
-          <Button variant="outline" className="w-full h-10 gap-2 cursor-pointer" onClick={handleGoogle}>
+          <Button variant="outline" className="w-full h-10 gap-2 cursor-pointer" onClick={handleGoogle} disabled={isAuthenticating}>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="h-4 w-4"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12 s5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C33.64,6.053,29.084,4,24,4C12.955,4,4,12.955,4,24 s8.955,20,20,20s20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,16.108,18.961,14,24,14c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657 C33.64,6.053,29.084,4,24,4C16.318,4,9.656,8.347,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.136,0,9.747-1.971,13.261-5.188l-6.106-5.162C29.066,35.091,26.671,36,24,36 c-5.202,0-9.619-3.317-11.283-7.941l-6.49,5.002C9.627,39.556,16.315,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.236-2.231,4.166-4.106,5.65c0,0,0.001,0,0.001,0 l6.106,5.162C35.91,40.188,44,35,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>
             Continue with Google
           </Button>
 
           <p className="mt-4 text-sm text-muted-foreground">
             Don&apos;t have an account? {" "}
-            <Link href={`/sign-up?returnTo=${encodeURIComponent(returnTo)}`} className="text-primary hover:underline cursor-pointer">Sign up</Link>
+            <button 
+              onClick={handleSignUpClick}
+              disabled={isNavigating}
+              className="text-primary hover:underline cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              Sign up
+            </button>
           </p>
         </div>
       </div>
     </div>
+    </>
   )
 }
 

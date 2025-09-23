@@ -9,6 +9,7 @@ interface CasesGridProps {
   cases: Case[]
   loading?: boolean
   emptyMessage?: string
+  highlightQuery?: string
 }
 
 // Optimized loading skeleton - matches actual case card dimensions
@@ -63,7 +64,8 @@ EmptyState.displayName = "EmptyState"
 export const CasesGrid = memo(({ 
   cases, 
   loading = false,
-  emptyMessage = "No cases found"
+  emptyMessage = "No cases found",
+  highlightQuery = ""
 }: CasesGridProps) => {
   if (loading) {
     return <LoadingSkeleton />
@@ -80,6 +82,7 @@ export const CasesGrid = memo(({
           key={caseData._id}
           case={caseData}
           index={index}
+          highlightQuery={highlightQuery}
         />
       ))}
     </div>

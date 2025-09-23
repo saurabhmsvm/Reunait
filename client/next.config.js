@@ -5,6 +5,30 @@ const nextConfig = {
   env: {
     BACKEND_URL: process.env.BACKEND_URL,
   },
+  // Allow cross-origin requests from local network during development
+  allowedDevOrigins: ['192.168.1.3', '*.local', '*.localhost'],
+  // Configure headers for production deployment
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*',
+          },
+          {
+            key: 'Access-Control-Allow-Methods',
+            value: 'GET, POST, PUT, DELETE, OPTIONS',
+          },
+          {
+            key: 'Access-Control-Allow-Headers',
+            value: 'Content-Type, Authorization',
+          },
+        ],
+      },
+    ]
+  },
   images: {
     remotePatterns: [
       {

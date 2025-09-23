@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@clerk/nextjs"
 import { useForm } from "react-hook-form"
@@ -17,6 +17,8 @@ import { useToast } from "@/contexts/toast-context"
 import { Player } from "@lottiefiles/react-lottie-player"
 import { Shield, Clock, CheckCircle2 } from "lucide-react"
 import { DatePicker } from "@/components/ui/date-picker"
+import { SimpleLoader } from "@/components/ui/simple-loader"
+import { createPortal } from "react-dom"
 
 const schema = z
   .object({
@@ -98,9 +100,22 @@ export default function OnboardingPage() {
   const { showSuccess, showError } = useToast()
   const [submitting, setSubmitting] = useState(false)
   const [reduceMotion, setReduceMotion] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const [isPageLoading, setIsPageLoading] = useState(true)
 
   // Check if user was redirected from register-case page
   const isFromRegisterCase = returnTo === "/register-case"
+
+  useEffect(() => {
+    setMounted(true)
+    
+    // Hide loader after a short delay to ensure page is fully rendered
+    const timer = setTimeout(() => {
+      setIsPageLoading(false)
+    }, 100) // Small delay to ensure smooth transition
+    
+    return () => clearTimeout(timer)
+  }, [])
 
   React.useEffect(() => {
     if (typeof window === "undefined") return
@@ -271,7 +286,15 @@ export default function OnboardingPage() {
   // Removed JIT call here; global OnboardingGate handles provisioning/redirect
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 md:px-4 lg:px-8 py-10 lg:py-14 max-w-7xl">
+    <>
+      {/* Full Screen Loader with Background Blur (Portal to body) */}
+      {mounted && isPageLoading && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-md">
+          <SimpleLoader />
+        </div>,
+        document.body
+      )}
+      <div className="container mx-auto px-4 sm:px-6 md:px-4 lg:px-8 py-10 lg:py-14 max-w-7xl">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16 items-start">
         {/* Left: Form */}
         <div className="lg:col-span-6 w-full max-w-[640px]">
@@ -696,6 +719,7 @@ export default function OnboardingPage() {
         </div>
       </div>
     </div>
+    </>
   )
 }
 

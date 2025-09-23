@@ -32,6 +32,7 @@ interface CaseCardProps {
     imageUrls?: string[]
   }
   index?: number
+  highlightQuery?: string
 }
 
 // Using shadcn's default theming
@@ -43,7 +44,7 @@ const STATUS_INFO = {
   default: { icon: Clock, colorLight: "text-slate-700", colorDark: "dark:text-slate-300", bg: "bg-slate-500/10 dark:bg-slate-400/10", ring: "ring-slate-500/20" }
 } as const
 
-export const CaseCard = memo(({ case: caseData, index = 0 }: CaseCardProps) => {
+export const CaseCard = memo(({ case: caseData, index = 0, highlightQuery = "" }: CaseCardProps) => {
   const [imageError, setImageError] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
@@ -93,6 +94,29 @@ export const CaseCard = memo(({ case: caseData, index = 0 }: CaseCardProps) => {
       ring: statusConfig.ring,
     }
   }, [caseData.dateMissingFound, caseData.status])
+
+  // Inline highlight helper for case name
+  const renderHighlightedName = useCallback(() => {
+    const q = (highlightQuery || "").trim()
+    if (!q || q.toLowerCase().startsWith('user:')) {
+      return caseData.fullName
+    }
+    const name = caseData.fullName || ""
+    const lower = name.toLowerCase()
+    const qLower = q.toLowerCase()
+    const idx = lower.indexOf(qLower)
+    if (idx === -1) return name
+    const before = name.slice(0, idx)
+    const match = name.slice(idx, idx + q.length)
+    const after = name.slice(idx + q.length)
+    return (
+      <span className="tracking-normal leading-tight">
+        {before}
+        <mark className="bg-amber-200/60 ring-1 ring-amber-400/30 dark:text-white rounded-[2px] px-0 py-0 m-0 align-baseline">{match}</mark>
+        {after}
+      </span>
+    )
+  }, [caseData.fullName, highlightQuery])
 
   // Reporter chip (text-only) - only for police/NGO
   const showReporterChip = caseData.reportedBy === "police" || caseData.reportedBy === "NGO"
@@ -347,7 +371,7 @@ export const CaseCard = memo(({ case: caseData, index = 0 }: CaseCardProps) => {
          {/* Header */}
          <div className="space-y-2">
            <Typography variant="h3" as="h2" className="font-serif font-semibold text-[1.15rem] sm:text-[1.25rem] leading-tight tracking-tight line-clamp-1">
-             {caseData.fullName}
+             {renderHighlightedName()}
            </Typography>
            <div className="flex items-center justify-between">
              <div className="flex items-center gap-2 text-sm text-muted-foreground">

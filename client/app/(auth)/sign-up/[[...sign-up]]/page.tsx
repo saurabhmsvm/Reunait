@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useSignUp, useAuth } from "@clerk/nextjs"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from "@/components/ui/input-otp"
@@ -11,10 +11,13 @@ import Link from "next/link"
 import { Eye, EyeOff } from "lucide-react"
 import { CaptchaRegion } from "@/components/auth/CaptchaRegion"
 import { useToast } from "@/contexts/toast-context"
+import { createPortal } from "react-dom"
+import { SimpleLoader } from "@/components/ui/simple-loader"
 
 export default function SignUpCatchAllPage() {
   const router = useRouter()
   const search = useSearchParams()
+  const pathname = usePathname()
   const rawReturnTo = (search?.get("returnTo")
     || search?.get("returnBackUrl")
     || search?.get("redirect_url")
@@ -58,6 +61,40 @@ export default function SignUpCatchAllPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [resendLoading, setResendLoading] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
+  const [isNavigating, setIsNavigating] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const [isAuthenticating, setIsAuthenticating] = useState(false)
+  const [isVerifying, setIsVerifying] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Hide loader when route changes
+  useEffect(() => {
+    if (isNavigating) {
+      setIsNavigating(false)
+    }
+  }, [pathname])
+
+  // Hide authentication loader when route changes or verification state changes
+  useEffect(() => {
+    if (isAuthenticating) {
+      setIsAuthenticating(false)
+    }
+  }, [pathname, pendingVerification])
+
+  // Hide verification loader when route changes
+  useEffect(() => {
+    if (isVerifying) {
+      setIsVerifying(false)
+    }
+  }, [pathname])
+
+  const handleSignInClick = () => {
+    setIsNavigating(true)
+    router.push(`/sign-in?returnTo=${encodeURIComponent(returnTo)}`)
+  }
 
   useEffect(() => {
     if (!isSignedIn) return
@@ -74,12 +111,14 @@ export default function SignUpCatchAllPage() {
     if (!isLoaded) return
     setError(null)
     setLoading(true)
+    setIsAuthenticating(true)
     try {
       // Create account first
       await signUp.create({ emailAddress: email, password })
       // Transition UI immediately to code step for better perceived performance
       setPendingVerification(true)
       setLoading(false)
+      setIsAuthenticating(false) // Clear loader when transitioning to OTP
       // Trigger Clerk to send the email code in the background
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" })
       showSuccess("We sent a verification code to your email.")
@@ -87,6 +126,7 @@ export default function SignUpCatchAllPage() {
     } catch (err: any) {
       showError(err?.errors?.[0]?.message || "Sign up failed. Please try again.")
       setLoading(false)
+      setIsAuthenticating(false)
     }
     // Ensure loading is reset in all cases
     finally {
@@ -100,6 +140,7 @@ export default function SignUpCatchAllPage() {
     const normalized = code.replace(/\D/g, "")
     if (normalized.length !== 6) return
     setLoading(true)
+    setIsVerifying(true)
     try {
       const res = await signUp.attemptEmailAddressVerification({ code: normalized })
       if (res.status === "complete") {
@@ -109,6 +150,7 @@ export default function SignUpCatchAllPage() {
       }
     } catch (err: any) {
       showError(getFriendlyClerkError(err))
+      setIsVerifying(false)
     } finally {
       setLoading(false)
     }
@@ -128,6 +170,7 @@ export default function SignUpCatchAllPage() {
 
   const handleGoogle = async () => {
     if (!isLoaded) return
+    setIsAuthenticating(true)
     try {
       await signUp.authenticateWithRedirect({
         strategy: "oauth_google",
@@ -136,6 +179,7 @@ export default function SignUpCatchAllPage() {
       })
     } catch (err: any) {
       showError(err?.errors?.[0]?.message || "Google sign-up failed.")
+      setIsAuthenticating(false)
     }
   }
 
@@ -168,7 +212,16 @@ export default function SignUpCatchAllPage() {
   }, [resendCooldown])
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 md:px-4 lg:px-8 py-16 flex justify-center">
+    <>
+      {/* Full Screen Loader with Background Blur (Portal to body) */}
+      {(isNavigating || isAuthenticating || isVerifying) && mounted && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-md">
+          <SimpleLoader />
+        </div>,
+        document.body
+      )}
+      
+      <div className="container mx-auto px-4 sm:px-6 md:px-4 lg:px-8 py-16 flex justify-center">
       <div className="w-full max-w-md">
         <div className="rounded-xl border border-border bg-card p-6 sm:p-7 shadow-sm">
           {!pendingVerification ? (
@@ -203,8 +256,8 @@ export default function SignUpCatchAllPage() {
                 </div>
               </div>
               {/* CAPTCHA will mount in the dedicated region below */}
-              <Button type="submit" className="w-full h-10 cursor-pointer" disabled={loading}>
-                {loading ? "Creating account..." : "Sign Up"}
+              <Button type="submit" className="w-full h-10 cursor-pointer" disabled={loading || isAuthenticating} aria-busy={loading || isAuthenticating}>
+                Sign Up
               </Button>
             </form>
           ) : (
@@ -231,7 +284,7 @@ export default function SignUpCatchAllPage() {
                 {resendCooldown > 0 ? (
                   <span className="text-xs text-muted-foreground">Resend code in {String(Math.floor(resendCooldown / 60)).padStart(1,'0')}:{String(resendCooldown % 60).padStart(2,'0')}</span>
                 ) : (
-                  <Button type="button" variant="ghost" className="h-auto p-0 text-sm text-primary cursor-pointer" onClick={handleResend} disabled={resendLoading}>
+                  <Button type="button" variant="ghost" className="h-auto p-0 text-sm text-primary cursor-pointer" onClick={handleResend} disabled={resendLoading || isVerifying}>
                     {resendLoading ? "Resending..." : "Resend code"}
                   </Button>
                 )}
@@ -250,7 +303,7 @@ export default function SignUpCatchAllPage() {
           )}
 
           {!pendingVerification && (
-            <Button variant="outline" className="w-full h-10 gap-2 cursor-pointer" onClick={handleGoogle}>
+            <Button variant="outline" className="w-full h-10 gap-2 cursor-pointer" onClick={handleGoogle} disabled={isAuthenticating}>
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="h-4 w-4"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12 s5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C33.64,6.053,29.084,4,24,4C12.955,4,4,12.955,4,24 s8.955,20,20,20s20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,16.108,18.961,14,24,14c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657 C33.64,6.053,29.084,4,24,4C16.318,4,9.656,8.347,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.136,0,9.747-1.971,13.261-5.188l-6.106-5.162C29.066,35.091,26.671,36,24,36 c-5.202,0-9.619-3.317-11.283-7.941l-6.49,5.002C9.627,39.556,16.315,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.236-2.231,4.166-4.106,5.65c0,0,0.001,0,0.001,0 l6.106,5.162C35.91,40.188,44,35,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>
               Continue with Google
             </Button>
@@ -258,11 +311,18 @@ export default function SignUpCatchAllPage() {
 
           <p className="mt-4 text-sm text-muted-foreground">
             Already have an account? {" "}
-            <Link href={`/sign-in?returnTo=${encodeURIComponent(returnTo)}`} className="text-primary hover:underline cursor-pointer">Sign in</Link>
+            <button 
+              onClick={handleSignInClick}
+              disabled={isNavigating}
+              className="text-primary hover:underline cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              Sign in
+            </button>
           </p>
         </div>
       </div>
     </div>
+    </>
   )
 }
 

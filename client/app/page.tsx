@@ -8,6 +8,7 @@ import { HomepageService } from "@/lib/homepage-service"
 import { InfiniteSlider } from "@/components/ui/infinite-slider"
 import { ProgressiveBlur } from "@/components/ui/progressive-blur"
 import TestimonialDialog from "@/components/testimonial-dialog"
+import { LocationDetector } from "@/components/location-detector"
 
 
 const iconMap: Record<string, any> = {
@@ -35,7 +36,7 @@ export default async function Home() {
   const renderSection = (section: any) => {
     switch (section.section) {
       case "hero":
-        return <HeroSection key={section.section} />
+        return <HeroSection key={section.section} casesRoute={section.data?.casesRoute || '/cases'} />
       
       case "features":
         return (
@@ -393,9 +394,11 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-black relative">
+      {/* Location Detector - requests permission automatically */}
+      <LocationDetector />
+      
       {/* Render sections in order */}
       {orderedSections.map(renderSection)}
-
     </div>
   )
 }

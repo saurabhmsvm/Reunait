@@ -8,13 +8,51 @@ import { SignedIn, SignedOut } from '@clerk/nextjs'
 import { AccountMenu } from '@/components/account-menu'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { LocationService } from '@/lib/location'
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { createPortal } from 'react-dom'
+import { SimpleLoader } from '@/components/ui/simple-loader'
+import { useNavigationLoader } from '@/hooks/use-navigation-loader'
 
 export function Navbar() {
     const [menuState, setMenuState] = React.useState(false)
     const [isScrolled, setIsScrolled] = React.useState(false)
     const [savedLocation, setSavedLocation] = React.useState<{ city: string; state: string } | null>(null)
+    const router = useRouter()
+    const pathname = usePathname()
+    const searchParams = useSearchParams()
+    const { isLoading, mounted, startLoading, stopLoading } = useNavigationLoader()
+
+    const stopAfterNextPaint = React.useCallback(() => {
+        // Ensure the loader is visible for at least one paint, then hide
+        requestAnimationFrame(() => requestAnimationFrame(() => stopLoading()))
+    }, [stopLoading])
+
+	const handleButtonClick = (href: string) => {
+		const isSameRoute = pathname === href
+		const isAuthPage = pathname?.startsWith('/sign-in') || pathname?.startsWith('/sign-up')
+		const goingToRegisterCase = href === '/register-case'
+		const goingToSignIn = href === '/sign-in'
+		const currentReturnTo = searchParams?.get('returnTo') || searchParams?.get('returnBackUrl') || searchParams?.get('redirect_url')
+		const hasReturnParam = Boolean(currentReturnTo)
+		const alreadyOnAuthWithReturnToRegister = isAuthPage && goingToRegisterCase && currentReturnTo === '/register-case'
+
+		// Treat as same-route in normal same-path cases and the auth→register-case loop case
+		let treatAsSameRoute = isSameRoute || alreadyOnAuthWithReturnToRegister
+		// But if we're on sign-in with return params and the user explicitly clicks Sign in,
+		// we should navigate to clean /sign-in (no params) to show generic sign-in.
+		if (pathname === '/sign-in' && goingToSignIn && hasReturnParam) {
+			treatAsSameRoute = false
+		}
+
+		startLoading({ expectRouteChange: !treatAsSameRoute })
+		if (treatAsSameRoute) {
+			stopAfterNextPaint()
+			return
+		}
+		router.push(href)
+	}
 
     React.useEffect(() => {
         const handleScroll = () => {
@@ -30,7 +68,16 @@ export function Navbar() {
     }, [])
 
     return (
-        <header>
+        <>
+            {/* Full Screen Loader with Background Blur (Portal to body) */}
+            {isLoading && mounted && createPortal(
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-md">
+                    <SimpleLoader />
+                </div>,
+                document.body
+            )}
+            
+            <header>
             <nav
                 data-state={menuState && 'active'}
                 className={cn("fixed z-50 w-full px-2", !isScrolled && "border-b border-border/100")}>
@@ -41,7 +88,15 @@ export function Navbar() {
                             <Link
                                 href="/"
                                 aria-label="home"
-                                className="flex items-center space-x-2">
+                                className="flex items-center space-x-2"
+                                onClick={(e) => {
+                                    // Start loader on every click; if already on '/', clear after next paint
+                                    startLoading({ expectRouteChange: pathname !== '/' })
+                                    if (pathname === '/') {
+                                        // Let default click occur (no navigation), and clear shortly
+                                        stopAfterNextPaint()
+                                    }
+                                }}>
                                 <Logo />
                             </Link>
                         </div>
@@ -50,12 +105,14 @@ export function Navbar() {
                             {/* Mobile actions */}
                             <div className="lg:hidden flex items-center gap-3">
                                 {/* Primary action - always visible */}
-                                <Link href="/register-case" className="cursor-pointer">
-                                    <Button className="flex items-center gap-1.5 hover:scale-105 transition-all duration-300 font-semibold shadow-md hover:shadow-lg bg-gradient-to-r from-primary to-primary/90 text-primary-foreground border-0 rounded-lg px-3 py-2 h-9 cursor-pointer">
-                                        <Plus className="h-4 w-4" />
-                                        <span className="text-sm">Report</span>
-                                    </Button>
-                                </Link>
+                                <Button 
+                                    onClick={() => handleButtonClick('/register-case')}
+                                    disabled={isLoading}
+                                    className="flex items-center gap-1.5 hover:scale-105 transition-all duration-300 font-semibold shadow-md hover:shadow-lg bg-gradient-to-r from-primary to-primary/90 text-primary-foreground border-0 rounded-lg px-3 py-2 h-9 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
+                                >
+                                    <Plus className="h-4 w-4" />
+                                    <span className="text-sm">Report</span>
+                                </Button>
                                 
                                 {/* Essential actions - always visible */}
                                 <div className="flex items-center gap-3">
@@ -63,9 +120,14 @@ export function Navbar() {
                                         <AccountMenu />
                                     </SignedIn>
                                     <SignedOut>
-                                        <Link href="/sign-in" className="cursor-pointer">
-                                            <Button variant="outline" className="h-9 px-4 text-sm cursor-pointer hover:scale-110 transition-all duration-300">Sign in</Button>
-                                        </Link>
+                                        <Button 
+                                            onClick={() => handleButtonClick('/sign-in')}
+                                            disabled={isLoading}
+                                            variant="outline" 
+                                            className="h-9 px-4 text-sm cursor-pointer hover:scale-110 transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed"
+                                        >
+                                            Sign in
+                                        </Button>
                                     </SignedOut>
                                 </div>
 
@@ -82,13 +144,15 @@ export function Navbar() {
                         {/* Desktop actions */}
                         <div className="hidden lg:flex items-center gap-3 lg:gap-4">
                             {/* Primary actions */}
-                            <Link href="/register-case" className="cursor-pointer">
-                                <Button className="flex items-center gap-2 font-semibold shadow-md hover:shadow-lg bg-gradient-to-r from-primary to-primary/90 text-primary-foreground border-0 rounded-lg px-4 py-2 h-10 cursor-pointer hover:scale-110 transition-all duration-300">
-                                    <Plus className="h-4 w-4" />
-                                    <span className="hidden lg:inline">Report Case</span>
-                                    <span className="lg:hidden">Report</span>
-                                </Button>
-                            </Link>
+                            <Button 
+                                onClick={() => handleButtonClick('/register-case')}
+                                disabled={isLoading}
+                                className="flex items-center gap-2 font-semibold shadow-md hover:shadow-lg bg-gradient-to-r from-primary to-primary/90 text-primary-foreground border-0 rounded-lg px-4 py-2 h-10 cursor-pointer hover:scale-110 transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed"
+                            >
+                                <Plus className="h-4 w-4" />
+                                <span className="hidden lg:inline">Report Case</span>
+                                <span className="lg:hidden">Report</span>
+                            </Button>
                             {/* Mobile buttons - always visible */}
                             <Link href="/donate" className="cursor-pointer">
                                 <Button variant="outline" size="icon" className="h-9 w-9 cursor-pointer hover:scale-110 hover:shadow-lg transition-all duration-300 ease-in-out group" aria-label="Buy me a coffee">
@@ -124,9 +188,14 @@ export function Navbar() {
                             </SignedIn>
 
                             <SignedOut>
-                                <Link href="/sign-in" className="cursor-pointer">
-                                    <Button variant="outline" className="h-10 px-4 text-sm cursor-pointer hover:scale-110 transition-all duration-300">Sign in</Button>
-                                </Link>
+                                <Button 
+                                    onClick={() => handleButtonClick('/sign-in')}
+                                    disabled={isLoading}
+                                    variant="outline" 
+                                    className="h-10 px-4 text-sm cursor-pointer hover:scale-110 transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed"
+                                >
+                                    Sign in
+                                </Button>
                             </SignedOut>
 
                             <ThemeToggle />
@@ -179,5 +248,6 @@ export function Navbar() {
                 </div>
             </nav>
         </header>
+        </>
     )
 }
