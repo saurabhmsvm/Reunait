@@ -8,11 +8,12 @@ import { format } from "date-fns"
 import Image from "next/image"
 import Link from "next/link"
 import { Typography } from "@/components/ui/typography"
-import { formatLocation } from "@/lib/cases/case-formatters"
+import { formatLocation, formatReward } from "@/lib/cases/case-formatters"
 import { useRouter } from "next/navigation"
 import { useNavigationLoader } from "@/hooks/use-navigation-loader"
 import { createPortal } from "react-dom"
 import { SimpleLoader } from "@/components/ui/simple-loader"
+import { useImageUrlRefresh } from "@/hooks/useImageUrlRefresh"
 
 // Optimized constants
 const CAROUSEL_INTERVAL = 800
@@ -56,7 +57,6 @@ export const CaseCard = memo(({ case: caseData, index = 0, highlightQuery = "", 
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [isHovered, setIsHovered] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  
   // Touch/swipe state
   const [touchStart, setTouchStart] = useState<number | null>(null)
   const [touchEnd, setTouchEnd] = useState<number | null>(null)
@@ -67,17 +67,27 @@ export const CaseCard = memo(({ case: caseData, index = 0, highlightQuery = "", 
   const carouselRef = useRef<HTMLDivElement>(null)
   const isMobile = useRef(false)
   
-  // Images
+  // Image URL refresh hook with proactive expiration tracking
+  const { refreshUrl, getUrl, version } = useImageUrlRefresh()
+  
+  // Images - use getUrl to check expiration and get cached valid URLs
   const { availableImages, hasMultipleImages } = useMemo(() => {
     const images = caseData.imageUrls && caseData.imageUrls.length > 0 
       ? caseData.imageUrls 
       : []
     
+    // Use getUrl to check expiration and return cached valid URLs (industry best practice)
+    const mergedImages = images.map((url, idx) => {
+      const imageIndex = idx + 1 // 1-based for API
+      // getUrl checks expiration and returns cached valid URL or triggers refresh
+      return getUrl(caseData._id, imageIndex, url)
+    })
+    
     return {
-      availableImages: images,
-      hasMultipleImages: images.length > 1
+      availableImages: mergedImages,
+      hasMultipleImages: mergedImages.length > 1
     }
-  }, [caseData.imageUrls])
+  }, [caseData.imageUrls, caseData._id, getUrl, version])
 
   const statusInfo = useMemo(() => {
     const rawDate = caseData.dateMissingFound
@@ -239,7 +249,28 @@ export const CaseCard = memo(({ case: caseData, index = 0, highlightQuery = "", 
     if (!isMobile.current) setIsHovered(false)
   }, [])
   
-  const handleImageError = useCallback(() => setImageError(true), [])
+  // Handle image error with automatic URL refresh (fallback mechanism)
+  const handleImageError = useCallback(async (event: React.SyntheticEvent<HTMLImageElement, Event>, imageIndex: number) => {
+    // Proactive refresh should prevent most errors, but this handles edge cases
+    try {
+      // Attempt to refresh the URL
+      const newUrl = await refreshUrl(caseData._id, imageIndex)
+      
+      if (newUrl) {
+        // Reset error state - URL will be updated via getUrl on next render
+        setImageError(false)
+        // Force re-render by updating a dummy state (getUrl will return new URL)
+        // The image src will update automatically via the useMemo dependency
+      } else {
+        // Refresh failed, show error
+        setImageError(true)
+      }
+    } catch (error) {
+      console.error(`Failed to refresh URL for case ${caseData._id}, image ${imageIndex}:`, error)
+      // Only set error if all retries failed
+      setImageError(true)
+    }
+  }, [caseData._id, refreshUrl])
   
   const handleImageNavigation = useCallback((direction: 'prev' | 'next') => (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -334,23 +365,26 @@ export const CaseCard = memo(({ case: caseData, index = 0, highlightQuery = "", 
                 className="flex w-full h-full transition-transform duration-300 ease-in-out"
                 style={carouselStyle}
               >
-                {availableImages.map((imageUrl, idx) => (
-                  <div 
-                    key={`${caseData._id}-image-${idx}`}
-                    className="relative flex-shrink-0 w-full h-full"
-                    style={imageWidthStyle}
-                  >
-                    <Image
-                      src={imageUrl}
-                      alt={`${caseData.fullName} - Image ${idx + 1}`}
-                      fill
-                      className="object-cover object-top transition-transform duration-200 group-hover:scale-105"
-                      onError={handleImageError}
-                      priority={idx < 2}
-                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-                    />
-                  </div>
-                ))}
+                {availableImages.map((imageUrl, idx) => {
+                  const imageIndex = idx + 1 // 1-based index for API
+                  return (
+                    <div 
+                      key={`${caseData._id}-image-${idx}`}
+                      className="relative flex-shrink-0 w-full h-full"
+                      style={imageWidthStyle}
+                    >
+                      <Image
+                        src={imageUrl}
+                        alt={`${caseData.fullName} - Image ${idx + 1}`}
+                        fill
+                        className="object-cover object-top transition-transform duration-200 group-hover:scale-105"
+                        onError={(e) => handleImageError(e, imageIndex)}
+                        priority={idx < 2}
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                      />
+                    </div>
+                  )
+                })}
               </div>
               
               {/* Image Indicators - Visual only, no click functionality */}
@@ -372,21 +406,18 @@ export const CaseCard = memo(({ case: caseData, index = 0, highlightQuery = "", 
 
               {/* Reporter chip removed as per design */}
 
-              {/* Reward - original badge with overflow fix */}
+              {/* Reward - compact formatted badge to prevent overflow */}
               {((typeof caseData.reward === "number" && caseData.reward > 0) ||
                 (typeof caseData.reward === "string" && caseData.reward.trim() !== "" && caseData.reward.trim() !== "0")) && (
                 <div className="absolute bottom-1 left-1 z-10 max-w-[75%]">
                   <Badge 
                     variant="secondary"
                     aria-label={`Reward: ${typeof caseData.reward === 'string' ? caseData.reward : caseData.reward}`}
+                    title={typeof caseData.reward === 'string' ? caseData.reward : String(caseData.reward)}
                     className="relative px-2.5 py-1.5 text-xs sm:text-sm leading-none font-semibold bg-amber-400 text-slate-900 dark:bg-amber-300 dark:text-amber-950 rounded-full shadow-sm max-w-full"
                   >
                     <span className="block truncate">
-                      {(() => {
-                        const raw = typeof caseData.reward === 'string' ? caseData.reward : String(caseData.reward)
-                        // Ensure currency code suffix is visible; if missing, render as-is
-                        return raw
-                      })()}
+                      {formatReward(caseData.reward)}
                     </span>
                   </Badge>
                 </div>

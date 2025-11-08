@@ -49,7 +49,7 @@ router.post('/report', async (req, res) => {
     // Append timeline event to the case (embedded)
     const clientIp = (req.headers["x-forwarded-for"]?.split(",")[0]?.trim()) || req.ip || req.connection?.remoteAddress || 'Unknown'
     await Case.findByIdAndUpdate(caseId, {
-      $push: { timelines: { message: message.trim(), time: new Date(), ipAddress: clientIp, phoneNumber: phoneNumber || null } }
+      $push: { timelines: { type: 'report_info', message: message.trim(), time: new Date(), ipAddress: clientIp, phoneNumber: phoneNumber || null } }
     });
 
     // Add notification to the case owner's user document
@@ -65,7 +65,7 @@ router.post('/report', async (req, res) => {
       { clerkUserId: caseData.caseOwner },
       { $push: { notifications: notificationData } },
       { new: true }
-    ).select('notifications').lean();
+    ).select('notifications email').lean();
 
     // Broadcast notification via SSE
     if (updatedUser && updatedUser.notifications && updatedUser.notifications.length > 0) {
@@ -87,20 +87,26 @@ router.post('/report', async (req, res) => {
       }
     }
 
-    // Update Clerk metadata to increment unread count
-    try {
-      const user = await clerkClient.users.getUser(caseData.caseOwner);
-      const currentCount = user.publicMetadata?.unreadNotificationCount || 0;
-      
-      await clerkClient.users.updateUserMetadata(caseData.caseOwner, {
-        publicMetadata: {
-          ...user.publicMetadata,
-          unreadNotificationCount: currentCount + 1
-        }
-      });
-    } catch (error) {
-      console.error('Error updating Clerk metadata for notification:', error);
-      // Don't fail the request if metadata update fails
+    // Send email notification (non-blocking)
+    if (updatedUser && updatedUser.email) {
+      try {
+        const { sendEmailNotificationAsync } = await import('../services/emailService.js');
+        await sendEmailNotificationAsync(
+          updatedUser.email,
+          'New Tip Received',
+          `New tip received for ${caseData.fullName}. Please review the details.`,
+          {
+            notificationType: 'case_reported',
+            userId: caseData.caseOwner,
+            caseId: String(caseData._id),
+            navigateTo: `/cases/${String(caseData._id)}`,
+            caseData: caseData, // Pass case data for metadata
+          }
+        );
+      } catch (error) {
+        console.error('Error sending email notification (non-blocking):', error);
+        // Don't fail the request if email fails
+      }
     }
 
     // Return success response

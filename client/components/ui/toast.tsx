@@ -83,10 +83,16 @@ const Toast = ({ message, type, duration = 5000, onClose, title }: ToastProps) =
     }
   }
 
+  // Truncate message if too long (max 150 characters, show ellipsis)
+  const MAX_MESSAGE_LENGTH = 150
+  const truncatedMessage = message.length > MAX_MESSAGE_LENGTH 
+    ? `${message.substring(0, MAX_MESSAGE_LENGTH).trim()}...` 
+    : message
+
   return (
     <div
       className={cn(
-        "max-w-sm w-full p-4 rounded-xl border shadow-lg transition-all duration-300 backdrop-blur-sm",
+        "max-w-sm w-full sm:max-w-md p-4 rounded-xl border shadow-lg transition-all duration-300 backdrop-blur-sm",
         getStyles(),
         isVisible ? "opacity-100 translate-x-0 scale-100" : "opacity-0 translate-x-full scale-95"
       )}
@@ -96,8 +102,8 @@ const Toast = ({ message, type, duration = 5000, onClose, title }: ToastProps) =
           {getIcon()}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-1">
-            <h4 className="text-sm font-semibold text-current">
+          <div className="flex items-center justify-between mb-1 gap-2">
+            <h4 className="text-sm font-semibold text-current truncate">
               {getTitle()}
             </h4>
             <button
@@ -105,12 +111,15 @@ const Toast = ({ message, type, duration = 5000, onClose, title }: ToastProps) =
                 setIsVisible(false)
                 setTimeout(onClose, 300)
               }}
-              className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5"
+              className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 flex-shrink-0"
+              aria-label="Close notification"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
-          <p className="text-sm text-current/90 leading-relaxed">{message}</p>
+          <p className="text-sm text-current/90 leading-relaxed break-words whitespace-normal">
+            {truncatedMessage}
+          </p>
         </div>
       </div>
     </div>

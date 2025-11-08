@@ -84,3 +84,43 @@ export async function flagCase(caseId: string, reason: string) {
     return { success: false, message: error instanceof Error ? error.message : 'Failed to flag case' }
   }
 }
+
+export async function assignCase(caseId: string, userId: string) {
+  try {
+    const { getToken } = await auth()
+    const token = getToken ? await getToken() : undefined
+
+    if (!token) {
+      throw new Error('Authentication required')
+    }
+
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL
+    if (!backendUrl) {
+      throw new Error('Backend URL not configured')
+    }
+
+    const response = await fetch(`${backendUrl}/cases/${caseId}/assign`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ userId }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      return { success: false, message: errorData.message || 'Failed to assign case' }
+    }
+
+    // Invalidate granular cache: tag + page path
+    revalidateTag(`case:${caseId}`)
+    revalidatePath(`/cases/${caseId}`)
+    
+    const payload = await response.json().catch(() => ({})) as any
+    return { success: true, message: payload.message || 'Case assigned successfully', data: payload?.data }
+  } catch (error) {
+    console.error('Error assigning case:', error)
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to assign case' }
+  }
+}

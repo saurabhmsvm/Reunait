@@ -105,7 +105,7 @@ const caseModel = new mongoose.Schema(
     },
     reportedBy: {
         type: String,
-        enum: ["general_user", "police", "NGO"]
+        enum: ["general_user", "police", "NGO", "volunteer"]
     },
     reward: String,
     lastSearchedTime: {
@@ -138,7 +138,7 @@ const caseModel = new mongoose.Schema(
             },
             userRole: {
                 type: String,
-                enum: ["general_user", "police", "NGO"],
+                enum: ["general_user", "police", "NGO", "volunteer"],
                 default: "general_user"
             },
             reason: {

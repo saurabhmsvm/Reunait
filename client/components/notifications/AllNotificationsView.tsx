@@ -173,6 +173,15 @@ export function AllNotificationsView() {
   }, [getToken, markAllReadOptimistic, fetchPage, currentPage])
 
   const handleNotificationClick = useCallback(async (notification: NotificationItem) => {
+    // Optimistically update local state immediately for instant UI feedback
+    if (!notification.isRead) {
+      setNotifications(prev => prev.map(n => 
+        n.id === notification.id ? { ...n, isRead: true } : n
+      ))
+      setUnreadCount(prev => Math.max(0, prev - 1))
+    }
+    
+    // Also update the store for consistency
     enqueueRead(notification.id)
     const token = await getToken()
     if (token) {

@@ -27,7 +27,7 @@ export function ThemeToggle() {
       <Button 
         variant="outline" 
         size="icon" 
-        className="h-9 w-9 hover:scale-110 transition-all duration-300 cursor-pointer"
+        className="h-9 w-9 hover:bg-accent hover:text-accent-foreground transition-all duration-300 cursor-pointer"
         disabled
       >
         <Sun className="h-4 w-4" />
@@ -41,7 +41,7 @@ export function ThemeToggle() {
       variant="outline" 
       size="icon" 
       onClick={toggleTheme}
-      className="h-9 w-9 hover:scale-110 transition-all duration-300 cursor-pointer"
+      className="h-9 w-9 hover:bg-accent hover:text-accent-foreground transition-all duration-300 cursor-pointer"
       aria-label={`Switch to ${nextTheme} mode`}
     >
       {isLight ? (

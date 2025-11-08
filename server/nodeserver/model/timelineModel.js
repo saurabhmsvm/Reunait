@@ -2,6 +2,10 @@ import mongoose from "mongoose";
 
 const timelineSchema = new mongoose.Schema(
   {
+    type: {
+      type: String,
+      enum: ['report_info', 'case_registration', 'case_closed', 'case_unflagged', 'case_hidden', 'case_assigned'],
+    },
     message: {
       type: String,
       required: true

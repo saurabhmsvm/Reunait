@@ -33,7 +33,7 @@ type ProfileData = {
   state?: string
   country?: string
   pincode?: string
-  role?: "general_user" | "police" | "NGO"
+  role?: "general_user" | "police" | "NGO" | "volunteer" | "police_denied"
   cases?: Case[]
   casesPagination?: {
     currentPage: number
@@ -240,7 +240,7 @@ export default function ProfileClient({ initialProfile }: { initialProfile?: Pro
         state: edit.state || '',
         country: edit.country || '',
         pincode: edit.pincode || '',
-        role: profile.role || 'general_user',
+        role: ((r => (r === 'general_user' || r === 'police' || r === 'NGO') ? r : 'general_user')(profile.role as any)) as 'general_user' | 'police' | 'NGO',
       }
       profileEditSchema.parse(formData)
       setValidationErrors({})
@@ -279,7 +279,7 @@ export default function ProfileClient({ initialProfile }: { initialProfile?: Pro
         state: edit.state || '',
         country: edit.country || '',
         pincode: edit.pincode || '',
-        role: profile.role || 'general_user',
+        role: ((r => (r === 'general_user' || r === 'police' || r === 'NGO') ? r : 'general_user')(profile.role as any)) as 'general_user' | 'police' | 'NGO',
       }
       ;(formData as any)[fieldName] = value
       profileEditSchema.parse(formData)

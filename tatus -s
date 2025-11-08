@@ -1,0 +1,24 @@
+warning: in the working copy of 'client/middleware.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'server/nodeserver/controllers/getCaseById.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'server/nodeserver/controllers/registerCase.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'server/nodeserver/controllers/updateCaseStatus.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'server/nodeserver/model/caseModel.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'server/nodeserver/model/userModel.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'server/nodeserver/routes/notifications.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'server/nodeserver/routes/report.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'server/nodeserver/routes/user-auth.js', LF will be replaced by CRLF the next time Git touches it
+ client/lib/clerk-metadata.ts                      | 18 [32m+[m[31m------[m
+ client/middleware.ts                              |  2 [32m+[m[31m-[m
+ server/nodeserver/controllers/caseOwnerProfile.js | 29 [32m++++++[m[31m-----[m
+ server/nodeserver/controllers/flagCase.js         | 63 [32m++++++++++++++[m[31m---------[m
+ server/nodeserver/controllers/getCaseById.js      | 41 [32m+++++++++[m[31m------[m
+ server/nodeserver/controllers/registerCase.js     | 32 [31m------------[m
+ server/nodeserver/controllers/updateCaseStatus.js | 16 [31m------[m
+ server/nodeserver/model/caseModel.js              |  4 [32m+[m[31m-[m
+ server/nodeserver/model/timelineModel.js          |  4 [32m++[m
+ server/nodeserver/model/userModel.js              |  2 [32m+[m[31m-[m
+ server/nodeserver/routes/notifications.js         | 27 [31m----------[m
+ server/nodeserver/routes/report.js                | 18 [32m+[m[31m------[m
+ server/nodeserver/routes/user-auth.js             | 59 [32m+++++++++++[m[31m----------[m
+ server/nodeserver/routes/volunteer.js             | 32 [31m------------[m
+ 14 files changed, 123 insertions(+), 224 deletions(-)

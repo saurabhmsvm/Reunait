@@ -18,22 +18,17 @@ const userModel = new mongoose.Schema(
         governmentIdNumber: {
             type: String,
             maxlength: 50,
-            unique: true,
-            sparse: true,
             required: false,
         },
         phoneNumber: {
             type: String,
             required: false,
             maxlength: 20,
-            unique: true,
-            sparse: true,
         },
         email: {
             type: String,
             required: true,
             maxlength: 50,
-            unique: true,
         },
         address: {
             type: String,
@@ -67,7 +62,7 @@ const userModel = new mongoose.Schema(
         cases: { type: [mongoose.Schema.Types.ObjectId], default: [] },
         role: {
             type: String,
-            enum: ["general_user", "police", "NGO"],
+            enum: ["general_user", "police", "NGO", "volunteer", "police_denied"],
             default: "general_user"
         },
         ipAddress: {
@@ -82,10 +77,18 @@ const userModel = new mongoose.Schema(
             type: Boolean,
             default: false
         },
+        isVerified: {
+            type: Boolean,
+            default: null // null = not applicable, false = pending verification, true = verified
+        },
     
     },
     {timestamps: true}
 );
+
+// Index for efficient verification queries
+userModel.index({ role: 1, isVerified: 1, country: 1 });
+userModel.index({ role: 1, isVerified: 1 }); // For country: "all" queries
 
 const User = mongoose.model("User", userModel);
 export default User;

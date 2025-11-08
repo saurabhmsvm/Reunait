@@ -1,5 +1,7 @@
 import Case from "../model/caseModel.js";
 import { clerkClient } from "@clerk/express";
+import User from "../model/userModel.js";
+import { broadcastNotification } from "../services/notificationBroadcast.js";
 
 /**
  * Flag a case
@@ -113,18 +115,6 @@ export const flagCase = async (req, res) => {
       });
     }
 
-    // Add timeline entry for the flag
-    const timelineEntry = {
-      time: new Date(),
-      ipAddress: flagData.ipAddress,
-      isRead: false,
-      flagData: flagData
-    };
-
-    await Case.findByIdAndUpdate(id, {
-      $push: { notifications: timelineEntry }
-    });
-
     // Check if case should be flagged on every 5th flag
     const flagCount = updatedCase.flags.length;
     let caseFlagged = false;
@@ -136,19 +126,65 @@ export const flagCase = async (req, res) => {
         showCase: false
       });
 
-      // Add timeline entry for case being flagged
-      const caseFlaggedEntry = {
-        message: "Case flagged and hidden due to multiple reports",
-        time: new Date(),
-        ipAddress: flagData.ipAddress,
-        isRead: false
-      };
-
-      await Case.findByIdAndUpdate(id, {
-        $push: { notifications: caseFlaggedEntry }
-      });
-
       caseFlagged = true;
+
+      // Notify case owner when case is flagged and hidden
+      if (caseData.caseOwner) {
+        const notificationData = {
+          message: `Your case '${caseData.fullName || "Unknown"}' has been flagged and hidden due to multiple reports.`,
+          time: new Date(),
+          isRead: false,
+          isClickable: false,
+          navigateTo: null
+        };
+
+        const updatedUser = await User.findOneAndUpdate(
+          { clerkUserId: caseData.caseOwner },
+          { $push: { notifications: notificationData } },
+          { new: true }
+        ).select('notifications email').lean().catch(() => null);
+
+        // Broadcast notification via SSE
+        if (updatedUser && updatedUser.notifications && updatedUser.notifications.length > 0) {
+          const newNotification = updatedUser.notifications[updatedUser.notifications.length - 1];
+          const unreadCount = (updatedUser.notifications || []).filter(n => !n.isRead).length;
+          try {
+            broadcastNotification(caseData.caseOwner, {
+              id: String(newNotification._id),
+              message: newNotification.message || '',
+              isRead: Boolean(newNotification.isRead),
+              isClickable: newNotification.isClickable !== false,
+              navigateTo: newNotification.navigateTo || null,
+              time: newNotification.time || null,
+              unreadCount,
+            });
+          } catch (error) {
+            console.error('Error broadcasting flag notification:', error);
+            // Don't fail the request if broadcast fails
+          }
+        }
+
+        // Send email notification (non-blocking)
+        if (updatedUser && updatedUser.email) {
+          try {
+            const { sendEmailNotificationAsync } = await import('../services/emailService.js');
+            await sendEmailNotificationAsync(
+              updatedUser.email,
+              'Case Flagged and Hidden',
+              `Your case '${caseData.fullName || "Unknown"}' has been flagged and hidden due to multiple reports.`,
+              {
+                notificationType: 'case_flagged',
+                userId: caseData.caseOwner,
+                caseId: String(id),
+                caseData: caseData, // Pass case data for metadata
+              }
+            );
+          } catch (error) {
+            console.error('Error sending email notification (non-blocking):', error);
+            // Don't fail the request if email fails
+          }
+        }
+      }
     }
 
     // Return success response

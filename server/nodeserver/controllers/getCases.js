@@ -106,7 +106,7 @@ export const getCases = async (req, res) => {
         for (let i = 1; i <= 2; i++) {
           const key = `${countryPath}/${caseData._id}_${i}.jpg`;
           try {
-            const imageUrl = await getPresignedGetUrl(config.awsBucketName, key, 180);
+            const imageUrl = await getPresignedGetUrl(config.awsBucketName, key);
             imageUrls.push(imageUrl);
           } catch (error) {
             // Failed to generate URL for this image

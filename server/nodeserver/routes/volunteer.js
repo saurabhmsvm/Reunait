@@ -13,15 +13,15 @@ const router = express.Router();
 async function requireVolunteer(req, res, next) {
   try {
     const { userId } = req.auth || {};
-    if (!userId) return res.status(401).json({ status: "error", message: "Unauthorized" });
+    if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
     const cu = await clerkClient.users.getUser(userId);
     const role = cu?.publicMetadata?.role;
     if (role !== "volunteer") {
-      return res.status(403).json({ status: "error", message: "Forbidden" });
+      return res.status(403).json({ success: false, message: "Forbidden" });
     }
     return next();
   } catch (e) {
-    return res.status(401).json({ status: "error", message: "Unauthorized" });
+    return res.status(401).json({ success: false, message: "Unauthorized" });
   }
 }
 
@@ -32,38 +32,62 @@ router.get("/verifications", requireAuth(), requireVolunteer, async (req, res) =
     const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
     const country = typeof req.query.country === "string" ? req.query.country : "all";
 
-    // Clerk list with offset-based pagination; filter by publicMetadata
-    const offset = (page - 1) * limit;
-    const list = await clerkClient.users.getUserList({ limit, offset, orderBy: "-created_at" });
-    const pending = (list?.data || []).filter((u) => {
-      const meta = u?.publicMetadata || {};
-      return meta?.isVerified === false && meta?.role === "general_user";
+    // Optimized approach: Query MongoDB directly for pending verifications
+    // isVerified field is synced with Clerk metadata, so we can query MongoDB without Clerk calls
+    // This is much more efficient and scalable - works even with millions of users
+    
+    // Build MongoDB query filter
+    const mongoFilter = { 
+      role: "general_user",
+      isVerified: false // Only pending verifications
+    };
+    
+    if (country !== "all") {
+      mongoFilter.country = country;
+    }
+
+    // Get total count for pagination
+    const total = await User.countDocuments(mongoFilter);
+
+    // Get paginated results directly from MongoDB
+    const skip = (page - 1) * limit;
+    const mongoUsers = await User.find(mongoFilter)
+      .select("clerkUserId fullName country state city email createdAt")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    // Format response (no Clerk calls needed!)
+    const items = mongoUsers.map((user) => {
+      // Get email from Clerk if needed, but for most cases MongoDB email is sufficient
+      // We can fetch Clerk email only if MongoDB email is missing
+      return {
+        clerkUserId: user.clerkUserId,
+        name: user.fullName || "",
+        email: user.email || "",
+        joined: user.createdAt,
+        country: user.country || "Unknown",
+        state: user.state || "",
+        city: user.city || "",
+      };
     });
 
-    // Enrich with Mongo user profile for location
-    const items = await Promise.all(pending.map(async (u) => {
-      const clerkUserId = u.id;
-      const email = u?.primaryEmailAddress?.emailAddress || u?.emailAddresses?.[0]?.emailAddress || "";
-      const createdAt = u?.createdAt || u?.created_at || undefined;
-      const mongoUser = await User.findOne({ clerkUserId }).select("fullName country state city").lean();
-      return {
-        clerkUserId,
-        name: mongoUser?.fullName || u?.firstName || "",
-        email,
-        joined: createdAt,
-        country: country === "all" ? (mongoUser?.country || "Unknown") : (mongoUser?.country || "Unknown"),
-        state: mongoUser?.state || "",
-        city: mongoUser?.city || "",
-      };
-    }));
+    const hasMore = skip + items.length < total;
 
-    const filtered = country === "all" ? items : items.filter((i) => (i.country || "").toLowerCase() === country.toLowerCase());
-
-    // total is approximate to page slice; Clerk doesn't provide total count straightforwardly without iterating
-    return res.json({ items: filtered, page, limit, total: filtered.length, hasMore: filtered.length === limit });
+    return res.json({ 
+      success: true,
+      data: {
+        items, 
+        page, 
+        limit, 
+        total, 
+        hasMore 
+      }
+    });
   } catch (err) {
     try { console.error("[GET /api/volunteer/verifications]", err); } catch {}
-    return res.status(500).json({ status: "error", message: "Server error" });
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
@@ -71,18 +95,18 @@ router.get("/verifications", requireAuth(), requireVolunteer, async (req, res) =
 router.post("/verifications/:clerkUserId/approve", requireAuth(), requireVolunteer, async (req, res) => {
   try {
     const { clerkUserId } = req.params;
-    if (!clerkUserId) return res.status(400).json({ status: "error", message: "Missing clerkUserId" });
+    if (!clerkUserId) return res.status(400).json({ success: false, message: "Missing clerkUserId" });
 
     let cu;
     try {
       cu = await clerkClient.users.getUser(clerkUserId);
     } catch {
-      return res.status(404).json({ status: "error", message: "User not found" });
+      return res.status(404).json({ success: false, message: "User not found" });
     }
 
     const meta = cu?.publicMetadata || {};
     if (meta.role === "police" && meta.isVerified === true) {
-      return res.json({ status: "success", message: "Already approved." });
+      return res.json({ success: true, message: "Already approved." });
     }
 
     // Update Clerk metadata
@@ -90,10 +114,10 @@ router.post("/verifications/:clerkUserId/approve", requireAuth(), requireVolunte
       publicMetadata: { role: "police", isVerified: true, lastUpdated: new Date().toISOString() },
     });
 
-    // Update Mongo User role
+    // Update Mongo User role and verification status
     const userDoc = await User.findOneAndUpdate(
       { clerkUserId },
-      { $set: { role: "police" } },
+      { $set: { role: "police", isVerified: true } },
       { new: true }
     ).lean();
 
@@ -168,10 +192,10 @@ router.post("/verifications/:clerkUserId/approve", requireAuth(), requireVolunte
       }
     }
 
-    return res.json({ status: "success", message: "Verification approved. Role updated to police." });
+    return res.json({ success: true, message: "Verification approved. Role updated to police." });
   } catch (err) {
     try { console.error("[POST /api/volunteer/verifications/:id/approve]", err); } catch {}
-    return res.status(500).json({ status: "error", message: "Server error" });
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
@@ -179,19 +203,28 @@ router.post("/verifications/:clerkUserId/approve", requireAuth(), requireVolunte
 router.post("/verifications/:clerkUserId/deny", requireAuth(), requireVolunteer, async (req, res) => {
   try {
     const { clerkUserId } = req.params;
-    if (!clerkUserId) return res.status(400).json({ status: "error", message: "Missing clerkUserId" });
+    if (!clerkUserId) return res.status(400).json({ success: false, message: "Missing clerkUserId" });
 
-    // Hard delete in Clerk only (keep Mongo user as-is per requirement)
+    // Hard delete in Clerk (account removal), retain Mongo user for audit
     try {
       await clerkClient.users.deleteUser(clerkUserId);
     } catch {
-      return res.status(404).json({ status: "error", message: "User not found" });
+      return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    return res.status(204).end();
+    // Mark Mongo user as denied for audit visibility (non-privileged)
+    // Set role to police_denied and clear isVerified to null so they don't appear in pending list
+    try {
+      await User.updateOne(
+        { clerkUserId },
+        { $set: { role: "police_denied", isVerified: null } }
+      );
+    } catch (_) {}
+
+    return res.json({ success: true, message: "Verification denied. User removed." });
   } catch (err) {
     try { console.error("[POST /api/volunteer/verifications/:id/deny]", err); } catch {}
-    return res.status(500).json({ status: "error", message: "Server error" });
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
@@ -203,7 +236,7 @@ router.get("/flagged", requireAuth(), requireVolunteer, async (req, res) => {
     const country = typeof req.query.country === "string" ? req.query.country : "all";
     const skip = (page - 1) * limit;
 
-    const filter = { isFlagged: true };
+    const filter = { isFlagged: true, showCase: { $ne: false } };
     if (country !== "all") {
       filter.country = country;
     }
@@ -282,22 +315,6 @@ router.post("/flagged/:caseId/unflag", requireAuth(), requireVolunteer, async (r
           console.error('Error broadcasting unflag notification:', error);
         }
       }
-
-      // Update Clerk metadata to increment unread count
-      try {
-        const user = await clerkClient.users.getUser(c.caseOwner);
-        const currentCount = user.publicMetadata?.unreadNotificationCount || 0;
-        
-        await clerkClient.users.updateUserMetadata(c.caseOwner, {
-          publicMetadata: {
-            ...user.publicMetadata,
-            unreadNotificationCount: currentCount + 1
-          }
-        });
-      } catch (error) {
-        console.error('Error updating Clerk metadata for unflag notification:', error);
-        // Don't fail the request if metadata update fails
-      }
     }
 
     return res.json({ status: "success", message: "Case unflagged and made visible." });
@@ -337,7 +354,7 @@ router.post("/flagged/:caseId/hide", requireAuth(), requireVolunteer, async (req
         { clerkUserId: c.caseOwner },
         { $push: { notifications: notificationData } },
         { new: true }
-      ).select('notifications').lean().catch(() => null);
+      ).select('notifications email').lean().catch(() => null);
 
       // Broadcast notification via SSE
       if (updatedUser && updatedUser.notifications && updatedUser.notifications.length > 0) {
@@ -358,20 +375,25 @@ router.post("/flagged/:caseId/hide", requireAuth(), requireVolunteer, async (req
         }
       }
 
-      // Update Clerk metadata to increment unread count
-      try {
-        const user = await clerkClient.users.getUser(c.caseOwner);
-        const currentCount = user.publicMetadata?.unreadNotificationCount || 0;
-        
-        await clerkClient.users.updateUserMetadata(c.caseOwner, {
-          publicMetadata: {
-            ...user.publicMetadata,
-            unreadNotificationCount: currentCount + 1
-          }
-        });
-      } catch (error) {
-        console.error('Error updating Clerk metadata for hide notification:', error);
-        // Don't fail the request if metadata update fails
+      // Send email notification (non-blocking)
+      if (updatedUser && updatedUser.email) {
+        try {
+          const { sendEmailNotificationAsync } = await import('../services/emailService.js');
+          await sendEmailNotificationAsync(
+            updatedUser.email,
+            'Case Removed Due to Violations',
+            `Your case '${c.fullName || ""}' was removed due to guideline violations.`,
+            {
+              notificationType: 'case_removed',
+              userId: c.caseOwner,
+              caseId: String(caseId),
+              caseData: c, // Pass case data for metadata
+            }
+          );
+        } catch (error) {
+          console.error('Error sending email notification (non-blocking):', error);
+          // Don't fail the request if email fails
+        }
       }
     }
 

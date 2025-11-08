@@ -100,6 +100,7 @@ export function ReportInfoPopup({ isOpen, onClose, caseId, addedBy, onSuccess }:
     <>
              <Dialog open={isOpen} onOpenChange={handleClose}>
                                                              <DialogContent 
+              showCloseButton={false}
               className="
                 w-[95vw] max-w-[480px] 
                 mx-auto my-auto

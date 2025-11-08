@@ -133,7 +133,7 @@ export const updateCaseStatus = async (req, res) => {
         { clerkUserId: caseData.caseOwner },
         { $push: { notifications: notificationData } },
         { new: true }
-      ).select('notifications').lean();
+      ).select('notifications email').lean();
 
       // Broadcast notification via SSE
       if (updatedUser && updatedUser.notifications && updatedUser.notifications.length > 0) {
@@ -156,20 +156,34 @@ export const updateCaseStatus = async (req, res) => {
         }
       }
 
-      // Update Clerk metadata to increment unread count
-      try {
-        const user = await clerkClient.users.getUser(caseData.caseOwner);
-        const currentCount = user.publicMetadata?.unreadNotificationCount || 0;
-        
-        await clerkClient.users.updateUserMetadata(caseData.caseOwner, {
-          publicMetadata: {
-            ...user.publicMetadata,
-            unreadNotificationCount: currentCount + 1
-          }
-        });
-      } catch (error) {
-        console.error('Error updating Clerk metadata for case status notification:', error);
-        // Don't fail the request if metadata update fails
+      // Send email notification (non-blocking)
+      if (updatedUser && updatedUser.email) {
+        try {
+          const { sendEmailNotificationAsync } = await import('../services/emailService.js');
+          const emailSubject = reunited 
+            ? `Case Closed - Family Reunited!`
+            : `Case Closed`;
+          const emailMessage = reunited
+            ? `Your case for ${caseData.fullName} has been closed - Family reunited! 🎉`
+            : `Your case for ${caseData.fullName} has been closed.`;
+          
+          await sendEmailNotificationAsync(
+            updatedUser.email,
+            emailSubject,
+            emailMessage,
+            {
+              notificationType: 'case_closed',
+              userId: caseData.caseOwner,
+              caseId: String(id),
+              navigateTo: navigateTo,
+              reunited: Boolean(reunited),
+              caseData: caseData, // Pass full case data for metadata
+            }
+          );
+        } catch (error) {
+          console.error('Error sending email notification (non-blocking):', error);
+          // Don't fail the request if email fails
+        }
       }
     }
 

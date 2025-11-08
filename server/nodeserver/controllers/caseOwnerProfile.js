@@ -94,23 +94,26 @@ export const getCaseOwnerProfile = async (req, res) => {
     let hasMoreCases = false;
     
     if (caseIds && caseIds.length > 0) {
-      // First, get all visible case IDs (where showCase is true)
-      const visibleCaseIds = await Case.find({ 
-        _id: { $in: caseIds }, 
-        showCase: true 
-      }).select('_id').lean();
-      
-      const visibleIds = visibleCaseIds.map(c => c._id);
-      totalCases = visibleIds.length;
+      // Show active and flagged cases, exclude closed (same as /users/profile)
+      const filter = {
+        _id: { $in: caseIds },
+        status: { $ne: 'closed' },
+        $or: [
+          { showCase: true },
+          { isFlagged: true }
+        ]
+      };
+
+      // Total count and pagination
+      totalCases = await Case.countDocuments(filter);
       hasMoreCases = totalCases > skip + limit;
-      
-      // Get paginated case IDs from visible cases only
-      const paginatedCaseIds = visibleIds.slice(skip, skip + limit);
-      
+
       // Fetch only the fields needed for case cards
-      const casesData = await Case.find({ _id: { $in: paginatedCaseIds } })
+      const casesData = await Case.find(filter)
         .select('_id fullName age gender status city state country dateMissingFound reward reportedBy createdAt isFlagged')
         .sort({ createdAt: -1 }) // Most recent first
+        .skip(skip)
+        .limit(limit)
         .lean();
 
       // Transform cases to include dynamically generated image URLs
@@ -122,7 +125,7 @@ export const getCaseOwnerProfile = async (req, res) => {
           for (let i = 1; i <= 2; i++) {
             const key = `${countryPath}/${caseData._id}_${i}.jpg`;
             try {
-              const imageUrl = await getPresignedGetUrl(config.awsBucketName, key, 180);
+              const imageUrl = await getPresignedGetUrl(config.awsBucketName, key);
               imageUrls.push(imageUrl);
             } catch (error) {
               // Ignore failures for missing images

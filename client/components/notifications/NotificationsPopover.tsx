@@ -164,7 +164,7 @@ export default function NotificationsPopover() {
       )}
       <Popover open={open} onOpenChange={(v) => { if (v) setLastSeenAt(); setOpen(v) }}>
         <PopoverTrigger asChild>
-        <Button variant="outline" size="icon" className="h-9 w-9 cursor-pointer hover:scale-110 transition-all duration-300 relative focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0" aria-label="Notifications">
+        <Button variant="outline" size="icon" className="h-9 w-9 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-all duration-300 relative focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0" aria-label="Notifications">
           <Bell className="h-4 w-4" />
           {unreadCount > 0 && (
             <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] leading-none rounded-full px-1.5 py-0.5">

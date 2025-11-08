@@ -7,6 +7,8 @@ interface CaseDetailItem {
   value?: string | null
   link?: string
   fullWidth?: boolean
+  onClick?: () => void
+  isClickable?: boolean
 }
 
 interface CaseDetailSection {
@@ -77,6 +79,13 @@ export function CaseDetailSection({ sections, status = 'success', onRetry }: Cas
                         <a href={item.link} className="text-primary hover:underline break-words">
                           {item.value}
                         </a>
+                      ) : item.onClick && item.isClickable ? (
+                        <button
+                          onClick={item.onClick}
+                          className="text-primary hover:underline break-words cursor-pointer text-left"
+                        >
+                          {item.value}
+                        </button>
                       ) : (
                         item.value
                       )}

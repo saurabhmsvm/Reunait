@@ -62,7 +62,7 @@ export function StatusChangeDialog({
       const result = await closeCase(caseId, reason.trim(), reunited)
       
       if (result.success) {
-        showSuccess('Case closed successfully', 'The case has been marked as closed and will no longer appear in search results.')
+        showSuccess('Case closed successfully', 'Case marked as closed and removed from search results.')
         // Start simple loader overlay for smooth transition until SSR refresh completes
         startLoading({ expectRouteChange: false })
         

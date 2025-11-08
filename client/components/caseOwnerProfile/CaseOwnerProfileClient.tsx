@@ -23,7 +23,7 @@ type ProfileData = {
   state?: string
   country?: string
   pincode?: string
-  role?: "general_user" | "police" | "NGO"
+  role?: "general_user" | "police" | "NGO" | "volunteer" | "police_denied"
   ipAddress?: string
   profileImageUrl?: string
   cases?: Case[]
@@ -91,6 +91,8 @@ export default function CaseOwnerProfileClient({ caseOwner, initialProfile, init
     general_user: "General User",
     police: "Police",
     NGO: "NGO",
+    volunteer: "Volunteer",
+    police_denied: "Police (Denied)",
   }
 
   const RoleBadge = ({ role }: { role?: ProfileData["role"] }) => {

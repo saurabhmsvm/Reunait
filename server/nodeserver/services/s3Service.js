@@ -13,6 +13,21 @@ const s3Client = new S3Client({
     }
 });
 
+/**
+ * Presigned URL expiration times (in seconds)
+ * Following AWS best practices: shortest practical expiration time
+ * 
+ * Expiry time is configured via environment variable PRESIGNED_URL_EXPIRY_SECONDS
+ * Default: 180 seconds (3 minutes) - good balance between security and UX
+ * 
+ * Upload operations: 30 seconds (sufficient for file upload)
+ */
+export const PRESIGNED_URL_EXPIRY = {
+    IMAGE_VIEWING: config.presignedUrlExpiry,  // From environment variable (default: 180 seconds)
+    IMAGE_UPLOAD: 30,                           // 30 seconds - for file uploads
+    AI_SEARCH: config.presignedUrlExpiry,       // Same as IMAGE_VIEWING
+};
+
 // Upload file to S3 using a presigned URL (standardized to JPEG format)
 const uploadToS3 = async (file, caseId, imageIndex, country, bucket = config.awsBucketName) => {
     try {
@@ -29,7 +44,7 @@ const uploadToS3 = async (file, caseId, imageIndex, country, bucket = config.aws
         });
 
         // Generate a presigned URL for uploading
-        const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 30 }); // 30 seconds expiry
+        const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: PRESIGNED_URL_EXPIRY.IMAGE_UPLOAD });
 
         // Upload the file using the presigned URL
         const uploadResponse = await axios.put(presignedUrl, file.buffer, {
@@ -47,10 +62,11 @@ const uploadToS3 = async (file, caseId, imageIndex, country, bucket = config.aws
 };
 
 // Generate a presigned GET URL for a given bucket/key
-const getPresignedGetUrl = async (bucket, key, expiresIn) => {
+// If expiresIn is not provided, uses standard IMAGE_VIEWING expiry
+const getPresignedGetUrl = async (bucket, key, expiresIn = PRESIGNED_URL_EXPIRY.IMAGE_VIEWING) => {
     const command = new GetObjectCommand({ Bucket: bucket, Key: key });
-    // Default to 10 seconds if expiresIn is not provided
-    const expiry = (typeof expiresIn === 'number' && expiresIn > 0) ? expiresIn : 10;
+    // Ensure expiry is valid (must be positive number)
+    const expiry = (typeof expiresIn === 'number' && expiresIn > 0) ? expiresIn : PRESIGNED_URL_EXPIRY.IMAGE_VIEWING;
     return await getSignedUrl(s3Client, command, { expiresIn: expiry });
 };
 

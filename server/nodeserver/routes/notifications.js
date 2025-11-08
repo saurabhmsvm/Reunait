@@ -1,6 +1,5 @@
 import express from 'express';
 import { requireAuth } from '@clerk/express';
-import { clerkClient } from '@clerk/express';
 import User from '../model/userModel.js';
 import { createSession } from 'better-sse';
 import { getUserChannel, getConnectionCount } from '../services/notificationBroadcast.js';
@@ -9,24 +8,6 @@ const router = express.Router();
 
 // Connection limit from environment variable
 const MAX_CONNECTIONS = parseInt(process.env.MAX_NOTIFICATIONS_CONNECTIONS || '1000', 10);
-
-// Function to update Clerk metadata
-async function updateClerkUnreadCount(userId, increment = true) {
-  try {
-    const user = await clerkClient.users.getUser(userId);
-    const currentCount = user.publicMetadata?.unreadNotificationCount || 0;
-    const newCount = increment ? currentCount + 1 : 0;
-    
-    await clerkClient.users.updateUserMetadata(userId, {
-      publicMetadata: {
-        ...user.publicMetadata,
-        unreadNotificationCount: Math.max(0, newCount)
-      }
-    });
-  } catch (error) {
-    console.error('Error updating Clerk metadata:', error);
-  }
-}
 
 // POST /api/notifications/read - mark one or many as read (idempotent)
 router.post('/notifications/read', requireAuth(), async (req, res) => {
@@ -59,11 +40,6 @@ router.post('/notifications/read', requireAuth(), async (req, res) => {
         { $set: Object.fromEntries(toMark.map((id) => [`notifications.$[elem${id}].isRead`, true])) },
         { arrayFilters: toMark.map((id) => ({ [`elem${id}._id`]: id })) }
       );
-      
-      // Update Clerk metadata with new unread count
-      const updatedUser = await User.findOne({ clerkUserId: userId }).select('notifications').lean();
-      const newUnreadCount = (updatedUser?.notifications || []).filter(n => !n.isRead).length;
-      await updateClerkUnreadCount(userId, newUnreadCount > 0);
     }
 
     return res.json({ success: true, updatedIds: toMark, alreadyReadIds, invalidIds });
@@ -83,9 +59,6 @@ router.post('/notifications/read-all', requireAuth(), async (req, res) => {
       { clerkUserId: userId },
       { $set: { 'notifications.$[].isRead': true } }
     );
-    
-    // Update Clerk metadata - reset unread count to 0
-    await updateClerkUnreadCount(userId, false);
     
     return res.json({ success: true });
   } catch (err) {

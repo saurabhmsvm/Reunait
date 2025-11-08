@@ -20,8 +20,10 @@ import { SimilarCasesDialog } from "@/components/cases/similar-cases-dialog"
 import { StatusChangeDialog } from "@/components/cases/case-detail/StatusChangeDialog"
 import { FlagCaseDialog } from "@/components/cases/case-detail/FlagCaseDialog"
 import { ShareDialog } from "@/components/cases/case-detail/ShareDialog"
+import { AssignCaseDialog } from "@/components/cases/case-detail/AssignCaseDialog"
 import { useCaseImages } from "@/hooks/cases/useCaseImages"
 import { useCaseActions } from "@/hooks/cases/useCaseActions"
+import { useImageUrlRefresh } from "@/hooks/useImageUrlRefresh"
 
 type Props = {
   id: string
@@ -39,12 +41,22 @@ export function CaseDetailClient({ id, initialData, initialMeta, initialNow }: P
   const [data, setData] = useState<CaseDetail | null>(initialData ?? null)
   const [loading, setLoading] = useState(!initialData)
   const [error, setError] = useState<string | null>(null)
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false)
+
+  // Image URL refresh hook with proactive expiration tracking
+  const { refreshUrl, getUrl, version } = useImageUrlRefresh()
 
   const images = useMemo(() => {
     if (!data) return [] as string[]
     const list = Array.isArray(data.imageUrls) && data.imageUrls.length > 0 ? data.imageUrls : []
-    return list
-  }, [data])
+    
+    // Use getUrl to check expiration and get cached valid URLs (industry best practice)
+    return list.map((url, idx) => {
+      const imageIndex = idx + 1 // 1-based for API
+      // getUrl checks expiration and returns cached valid URL or triggers refresh
+      return getUrl(id, imageIndex, url)
+    })
+  }, [data, id, getUrl, version])
 
   // After a router.refresh (SSR re-run), Next.js will send new props.
   // Sync any updated initialData back into local state so all child components reflect updates.
@@ -57,6 +69,10 @@ export function CaseDetailClient({ id, initialData, initialMeta, initialNow }: P
   }, [initialData])
 
   const { selectedIndex, setSelectedIndex } = useCaseImages({ images })
+
+  // Note: Proactive refresh is now handled automatically by useImageUrlRefresh hook
+  // URLs are refreshed at 80% of expiration time (2.4 minutes) in the background
+  // No need for manual refresh on image switch - hook handles it automatically
 
   const {
     isReportInfoOpen,
@@ -382,28 +398,61 @@ export function CaseDetailClient({ id, initialData, initialMeta, initialNow }: P
                     <div className="relative w-full overflow-hidden rounded-xl border border-border bg-card">
                       <div className="relative w-full aspect-[4/5] md:max-h-[520px] lg:max-h-none">
                         <Image
+                          key={`${id}-${selectedIndex}-${images[selectedIndex]}`}
                           src={images[selectedIndex]}
                           alt={`${data?.fullName ?? 'Person'} - Image ${selectedIndex + 1}`}
                           fill
                           className="object-cover"
                           sizes="(max-width: 1024px) 100vw, 40vw"
                           priority={selectedIndex === 0}
+                          onError={async (e) => {
+                            // Fallback error handler - proactive refresh should prevent most errors
+                            const imageIndex = selectedIndex + 1
+                            try {
+                              await refreshUrl(id, imageIndex)
+                              // URL will be updated via getUrl on next render
+                            } catch (error) {
+                              console.error(`Failed to refresh URL for case ${id}, image ${imageIndex}:`, error)
+                            }
+                          }}
                         />
                       </div>
                     </div>
                     <div className="h-0.5 w-full bg-gradient-to-r from-primary/25 via-primary/15 to-transparent my-3" />
                     {images.length > 1 && (
                       <div className="flex gap-2 overflow-x-auto pr-1">
-                        {images.map((src, i) => (
-                          <button
-                            key={i}
-                            onClick={() => setSelectedIndex(i)}
-                            className={`relative h-16 w-14 sm:h-20 sm:w-16 rounded-lg overflow-hidden border ${i === selectedIndex ? 'border-primary' : 'border-border'} shrink-0`}
-                            aria-label={`Select image ${i + 1}`}
-                          >
-                            <Image src={src} alt={`Thumb ${i + 1}`} fill className="object-cover" sizes="96px" />
-                          </button>
-                        ))}
+                        {images.map((src, i) => {
+                          const imageIndex = i + 1
+                          return (
+                            <button
+                              key={i}
+                              onClick={() => {
+                                // Proactive refresh is handled automatically by useImageUrlRefresh hook
+                                // URLs are refreshed at 80% of expiration time in background
+                                setSelectedIndex(i)
+                              }}
+                              className={`relative h-16 w-14 sm:h-20 sm:w-16 rounded-lg overflow-hidden border ${i === selectedIndex ? 'border-primary' : 'border-border'} shrink-0`}
+                              aria-label={`Select image ${i + 1}`}
+                            >
+                              <Image 
+                                src={src} 
+                                alt={`Thumb ${i + 1}`} 
+                                fill 
+                                className="object-cover" 
+                                sizes="96px"
+                                onError={async (e) => {
+                                  // Fallback error handler - proactive refresh should prevent most errors
+                                  try {
+                                    await refreshUrl(id, imageIndex)
+                                    // URL will be updated via getUrl on next render
+                                  } catch (error) {
+                                    console.error(`Failed to refresh URL for case ${id}, image ${imageIndex}:`, error)
+                                  }
+                                }}
+                              />
+                            </button>
+                          )
+                        })}
                       </div>
                     )}
                   </>
@@ -437,7 +486,21 @@ export function CaseDetailClient({ id, initialData, initialMeta, initialNow }: P
               isSignedIn={isSignedIn}
             />
             <CaseDescription data={data} />
-            <CaseDetailSection sections={data.sections ?? []} />
+            <CaseDetailSection 
+              sections={data.sections?.map(section => ({
+                ...section,
+                items: section.items.map((item: any) => {
+                  // Add onClick handler for "Assigned: No" when clickable
+                  if (item.label === 'Assigned' && item.isClickable && data?.canAssign && id) {
+                    return {
+                      ...item,
+                      onClick: () => setIsAssignDialogOpen(true)
+                    }
+                  }
+                  return item
+                })
+              })) ?? []} 
+            />
           </div>
         </div>
 
@@ -462,6 +525,15 @@ export function CaseDetailClient({ id, initialData, initialMeta, initialNow }: P
           onClose={() => setIsShareModalOpen(false)}
           caseData={data}
         />
+
+        {data?.canAssign && id && (
+          <AssignCaseDialog 
+            caseId={id} 
+            onAssigned={refreshCaseData}
+            open={isAssignDialogOpen}
+            onOpenChange={setIsAssignDialogOpen}
+          />
+        )}
       </div>
     </div>
   )

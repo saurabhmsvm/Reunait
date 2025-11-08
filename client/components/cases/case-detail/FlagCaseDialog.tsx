@@ -46,7 +46,7 @@ export function FlagCaseDialog({
       const result = await flagCase(caseId, selectedReason)
       
       if (result.success) {
-        showSuccess('Case flagged successfully', result.message)
+        showSuccess('Case flagged successfully', 'Thank you for helping maintain quality.')
         setIsOpen(false)
         setSelectedReason('')
         onFlagged?.()

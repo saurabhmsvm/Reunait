@@ -47,6 +47,11 @@ router.post("/users/profile", requireAuth(), async (req, res) => {
             ipAddress: (req.headers["x-forwarded-for"]?.split(",")[0]?.trim()) || req.ip,
         };
 
+        // Check if onboarding was just completed (to send welcome email)
+        const existingUser = await User.findOne({ clerkUserId: userId }).select('onboardingCompleted email').lean();
+        const wasOnboardingCompleted = existingUser?.onboardingCompleted || false;
+        let isJustCompletingOnboarding = !wasOnboardingCompleted && update.onboardingCompleted === true;
+
         // First try update without upsert
         let user = await User.findOneAndUpdate(
             { clerkUserId: userId },
@@ -73,6 +78,11 @@ router.post("/users/profile", requireAuth(), async (req, res) => {
                 { $set: update, $setOnInsert: setOnInsert },
                 { new: true, upsert: true }
             );
+            
+            // For new users, onboarding completion is true immediately
+            if (update.onboardingCompleted === true) {
+                isJustCompletingOnboarding = true;
+            }
         }
 
         // Update Clerk public metadata with onboarding status and role
@@ -87,9 +97,15 @@ router.post("/users/profile", requireAuth(), async (req, res) => {
                 // Set role as general_user and add verification status
                 clerkMetadata.role = 'general_user';
                 clerkMetadata.isVerified = false;
+                // Also store in MongoDB for efficient querying
+                update.isVerified = false;
             } else {
-                // Normal flow for general_user and NGO
-                clerkMetadata.role = user.role || 'general_user';
+                // Normal flow for non-police users → clamp to allowed Clerk roles
+                const allowedClerkRoles = new Set(['general_user', 'NGO', 'volunteer']);
+                const existingRole = user?.role;
+                clerkMetadata.role = allowedClerkRoles.has(existingRole) ? existingRole : 'general_user';
+                // isVerified is null for non-police users
+                update.isVerified = null;
             }
 
             await clerkClient.users.updateUserMetadata(userId, {
@@ -98,6 +114,26 @@ router.post("/users/profile", requireAuth(), async (req, res) => {
         } catch (error) {
             console.error('Failed to update Clerk metadata:', error);
             // Don't fail the request if metadata update fails
+        }
+
+        // Send welcome email when onboarding is just completed (non-blocking)
+        if (isJustCompletingOnboarding && user?.email) {
+            try {
+                const { sendEmailNotificationAsync } = await import('../services/emailService.js');
+                await sendEmailNotificationAsync(
+                    user.email,
+                    'Welcome to Reunait! 👋',
+                    "We're thrilled to have you join our community dedicated to reuniting families. Reunait empowers you to make a meaningful difference by registering missing person reports, uploading found person cases, and helping identify matches in our network. Our platform connects verified volunteers, NGOs, law enforcement partners, and community members to create a powerful network of support. Together, we can help bring families back together.",
+                    {
+                        notificationType: 'welcome',
+                        userId: userId,
+                        navigateTo: '/register-case',
+                    }
+                );
+            } catch (error) {
+                // Don't fail the request if email fails
+                // Error is already logged in emailService
+            }
         }
 
         // Return sanitized user data (same as GET endpoint)
@@ -129,23 +165,26 @@ router.post("/users/profile", requireAuth(), async (req, res) => {
         let hasMoreCases = false;
 
         if (userCases && userCases.length > 0) {
-            // First, get all visible case IDs (where showCase is true)
-            const visibleCaseIds = await Case.find({
+            // Root-cause fix: include active and flagged cases, exclude closed
+            const profileCasesFilter = {
                 _id: { $in: userCases },
-                showCase: true
-            }).select('_id').lean();
+                status: { $ne: 'closed' },
+                $or: [
+                    { showCase: true },
+                    { isFlagged: true }
+                ]
+            };
 
-            const visibleIds = visibleCaseIds.map(c => c._id);
-            totalCases = visibleIds.length;
+            // Total count for pagination
+            totalCases = await Case.countDocuments(profileCasesFilter);
             hasMoreCases = totalCases > skip + limit;
 
-            // Get paginated case IDs from visible cases only
-            const paginatedCaseIds = visibleIds.slice(skip, skip + limit);
-
-            // Fetch only the fields needed for case cards
-            const casesData = await Case.find({ _id: { $in: paginatedCaseIds } })
+            // Fetch only the fields needed for case cards, with stable sort + pagination
+            const casesData = await Case.find(profileCasesFilter)
                 .select('_id fullName age gender status city state country dateMissingFound reward reportedBy createdAt isFlagged')
                 .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
                 .lean();
 
             // Transform cases to include dynamically generated image URLs
@@ -156,7 +195,7 @@ router.post("/users/profile", requireAuth(), async (req, res) => {
                     for (let i = 1; i <= 2; i++) {
                         const key = `${countryPath}/${caseData._id}_${i}.jpg`;
                         try {
-                            const imageUrl = await getPresignedGetUrl(config.awsBucketName, key, 180);
+                            const imageUrl = await getPresignedGetUrl(config.awsBucketName, key);
                             imageUrls.push(imageUrl);
                         } catch (error) {
                             // Ignore failures for missing images
@@ -281,23 +320,26 @@ router.get("/users/profile", requireAuth(), async (req, res) => {
         let hasMoreCases = false;
         
         if (caseIds && caseIds.length > 0) {
-            // First, get all visible case IDs (where showCase is true)
-            const visibleCaseIds = await Case.find({ 
-                _id: { $in: caseIds }, 
-                showCase: true 
-            }).select('_id').lean();
-            
-            const visibleIds = visibleCaseIds.map(c => c._id);
-            totalCases = visibleIds.length;
+            // Root-cause fix: include active and flagged cases, exclude closed
+            const profileCasesFilter = {
+                _id: { $in: caseIds },
+                status: { $ne: 'closed' },
+                $or: [
+                    { showCase: true },
+                    { isFlagged: true }
+                ]
+            };
+
+            // Total count for pagination
+            totalCases = await Case.countDocuments(profileCasesFilter);
             hasMoreCases = totalCases > skip + limit;
-            
-            // Get paginated case IDs from visible cases only
-            const paginatedCaseIds = visibleIds.slice(skip, skip + limit);
-            
-            // Fetch only the fields needed for case cards
-            const casesData = await Case.find({ _id: { $in: paginatedCaseIds } })
+
+            // Fetch only the fields needed for case cards, with stable sort + pagination
+            const casesData = await Case.find(profileCasesFilter)
                 .select('_id fullName age gender status city state country dateMissingFound reward reportedBy createdAt isFlagged')
                 .sort({ createdAt: -1 }) // Most recent first
+                .skip(skip)
+                .limit(limit)
                 .lean();
 
             // Transform cases to include dynamically generated image URLs
@@ -309,7 +351,7 @@ router.get("/users/profile", requireAuth(), async (req, res) => {
                     for (let i = 1; i <= 2; i++) {
                         const key = `${countryPath}/${caseData._id}_${i}.jpg`;
                         try {
-                            const imageUrl = await getPresignedGetUrl(config.awsBucketName, key, 180);
+                            const imageUrl = await getPresignedGetUrl(config.awsBucketName, key);
                             imageUrls.push(imageUrl);
                         } catch (error) {
                             // Ignore failures for missing images
@@ -370,9 +412,38 @@ router.get("/users/profile", requireAuth(), async (req, res) => {
 });
 
 // GET /api/users/search
-// Search users by name, email, or phone number (for police users)
+// Search users by name, email, or phone number (for police and volunteer users)
 router.get("/users/search", requireAuth(), async (req, res) => {
     try {
+        const { userId } = req.auth || {};
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized"
+            });
+        }
+
+        // Extract user role from Clerk public metadata
+        let userRole = 'general_user';
+        try {
+            const user = await clerkClient.users.getUser(userId);
+            userRole = user.publicMetadata?.role || 'general_user';
+        } catch (error) {
+            console.error('Failed to get user from Clerk:', error);
+            return res.status(500).json({
+                success: false,
+                message: "Failed to verify user authentication."
+            });
+        }
+
+        // Only allow police and volunteer users to access this endpoint
+        if (userRole !== 'police' && userRole !== 'volunteer') {
+            return res.status(403).json({
+                success: false,
+                message: "Access denied. Only police and volunteer users can search users."
+            });
+        }
+
         const { query } = req.query;
 
         if (!query || typeof query !== 'string' || query.trim().length === 0) {
@@ -395,11 +466,17 @@ router.get("/users/search", requireAuth(), async (req, res) => {
         const escapedSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
         // Build search query - search across fullName, email, and phoneNumber
+        // Exclude the current user from results
         const searchFilter = {
-            $or: [
-                { fullName: { $regex: escapedSearchTerm, $options: 'i' } },
-                { email: { $regex: escapedSearchTerm, $options: 'i' } },
-                { phoneNumber: { $regex: escapedSearchTerm, $options: 'i' } }
+            $and: [
+                {
+                    $or: [
+                        { fullName: { $regex: escapedSearchTerm, $options: 'i' } },
+                        { email: { $regex: escapedSearchTerm, $options: 'i' } },
+                        { phoneNumber: { $regex: escapedSearchTerm, $options: 'i' } }
+                    ]
+                },
+                ...(userId ? [{ clerkUserId: { $ne: userId } }] : [])
             ]
         };
 
@@ -498,8 +575,7 @@ router.post("/webhooks/clerk", express.raw({ type: "application/json" }), async 
             publicMetadata: {
               onboardingCompleted: false,
               role: 'general_user',
-              lastUpdated: new Date().toISOString(),
-              unreadNotificationCount: 0
+              lastUpdated: new Date().toISOString()
             }
           });
         } catch (error) {

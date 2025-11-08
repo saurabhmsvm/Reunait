@@ -2,6 +2,7 @@ import { Typography } from "@/components/ui/typography"
 import { Button as MovingBorderButton } from "@/components/ui/moving-border"
 import { Clock } from "lucide-react"
 import { formatCaseStatus } from "@/lib/helpers"
+import { formatReward } from "@/lib/cases/case-formatters"
 import type { CaseDetail } from "@/lib/api"
 
 interface CaseHeroProps {
@@ -79,7 +80,7 @@ export function CaseHero({ data }: CaseHeroProps) {
                   className="font-bold tabular-nums overflow-hidden text-ellipsis inline-block max-w-[100px] sm:max-w-[140px] text-yellow-700"
                   title={typeof data.reward === 'string' ? data.reward : data.reward?.toString()}
                 >
-                  {typeof data.reward === 'string' ? data.reward : data.reward}
+                  {formatReward(data.reward)}
                 </span>
               </MovingBorderButton>
             </div>

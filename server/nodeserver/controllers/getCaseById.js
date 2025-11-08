@@ -57,7 +57,9 @@ export const getCaseById = async (req, res) => {
     // Build notifications from timelines for response compatibility
     let filteredNotifications = [];
     const sourceTimeline = Array.isArray(caseData.timelines) ? caseData.timelines : [];
-    if (sourceTimeline.length > 0) {
+    
+    // Only process timelines if user is authenticated (frontend only shows progress to case owners)
+    if (sourceTimeline.length > 0 && auth?.userId) {
       const viewerIsOwner = Boolean(auth?.userId) && String(caseData.caseOwner) === String(auth.userId);
       if (userRole === 'police' || (userRole === 'volunteer' && !viewerIsOwner)) {
         // Police and non-owner volunteers get full details (IP and phone)
@@ -84,8 +86,8 @@ export const getCaseById = async (req, res) => {
           };
         }).filter(Boolean);
       } else if (viewerIsOwner) {
-        // Case owner: no IP; phone only if owner is police or volunteer
-        const allowPhone = (userRole === 'police' || userRole === 'volunteer');
+        // Case owner: include sensitive details if owner is police or volunteer
+        const allowSensitive = (userRole === 'police' || userRole === 'volunteer');
         filteredNotifications = sourceTimeline.map(notification => {
           // Handle flag entries - check flagData
           let message = null;
@@ -100,18 +102,22 @@ export const getCaseById = async (req, res) => {
             return null;
           }
           
+          // If owner is not police/volunteer and this is a report, mask the message
+          if (!(userRole === 'police' || userRole === 'volunteer') && notification.type === 'report_info') {
+            message = 'New information received.';
+          }
+
           const shaped = {
             message: message,
             time: notification.time,
             isRead: notification.isRead
           };
-          if (allowPhone && notification.phoneNumber) {
-            shaped.phoneNumber = notification.phoneNumber;
-          }
+          if (allowSensitive && notification.phoneNumber) shaped.phoneNumber = notification.phoneNumber;
+          if (allowSensitive && notification.ipAddress) shaped.ipAddress = notification.ipAddress;
           return shaped;
         }).filter(Boolean);
       } else {
-        // General users get basic notifications without sensitive details
+        // Authenticated general users/NGO who are not owners get basic notifications without sensitive details
         filteredNotifications = sourceTimeline.map(notification => {
           // Handle flag entries - check flagData first since flag entries don't have message field
           let message = null;
@@ -126,6 +132,11 @@ export const getCaseById = async (req, res) => {
             return null;
           }
           
+          // Mask report messages for non-privileged viewers
+          if (notification.type === 'report_info') {
+            message = 'New information received.';
+          }
+
           return {
             message: message,
             time: notification.time,
@@ -133,8 +144,8 @@ export const getCaseById = async (req, res) => {
           };
         }).filter(Boolean);
       }
-      // Other users get no notifications (privacy protection)
     }
+    // Unauthenticated users get empty array (not shown on frontend anyway)
 
     // Generate image URLs using country-based key prefix with .jpg extension
     const imageUrls = [];
@@ -143,7 +154,7 @@ export const getCaseById = async (req, res) => {
       for (let i = 1; i <= 2; i++) {
         const key = `${countryPath}/${caseData._id}_${i}.jpg`;
         try {
-          const imageUrl = await getPresignedGetUrl(config.awsBucketName, key, 300);
+          const imageUrl = await getPresignedGetUrl(config.awsBucketName, key);
           imageUrls.push(imageUrl);
         } catch (error) {
           // Ignore failures for missing images
@@ -169,7 +180,7 @@ export const getCaseById = async (req, res) => {
           for (let i = 1; i <= 2; i++) {
             const key = `${countryPath}/${similarCase._id}_${i}.jpg`;
             try {
-              const imageUrl = await getPresignedGetUrl(config.awsBucketName, key, 3600);
+              const imageUrl = await getPresignedGetUrl(config.awsBucketName, key);
               similarImageUrls.push(imageUrl);
             } catch (error) {
               // Ignore missing images
@@ -197,18 +208,18 @@ export const getCaseById = async (req, res) => {
     }
 
     // Modify lastSearchedTime based on user role
-    // General users get normal cooldown, police and NGO users get null (always enabled)
-    const modifiedLastSearchedTime = (userRole === "general_user") 
-      ? caseData.lastSearchedTime 
+    // General users get normal cooldown; police, NGO, and volunteers get null (always enabled)
+    const modifiedLastSearchedTime = (userRole === "general_user")
+      ? caseData.lastSearchedTime
       : null;
     
 
     const isAuthenticated = !!(auth?.userId)
     const alreadyFlaggedByUser = isAuthenticated && Array.isArray(caseData.flags) && caseData.flags.some(f => f.userId === auth.userId)
     
-    // Updated isCaseOwner logic: police users OR actual case owners
+    // Updated isCaseOwner logic: police/volunteer users OR actual case owners
     const isCaseOwner = isAuthenticated && (
-      userRole === 'police' || 
+      userRole === 'police' || userRole === 'volunteer' ||
       String(caseData.caseOwner) === String(auth.userId)
     )
     
@@ -225,6 +236,11 @@ export const getCaseById = async (req, res) => {
     
     const isFlaggableState = caseData.showCase !== false && caseData.status !== 'closed'
     const canFlag = Boolean(isAuthenticated) && !alreadyFlaggedByUser && isFlaggableState
+
+    // Check if user can assign case (police/volunteer only, and case must not be assigned)
+    const canAssign = Boolean(isAuthenticated) && 
+                      (userRole === 'police' || userRole === 'volunteer') && 
+                      caseData.isAssigned === false
 
     const transformed = {
       _id: caseData._id,
@@ -245,9 +261,11 @@ export const getCaseById = async (req, res) => {
       contactNumber: caseData.contactNumber,
       addedBy: caseData.addedBy,
       caseOwner: caseData.caseOwner,
+      isAssigned: caseData.isAssigned || false,
       similarCases,
       notifications: filteredNotifications.reverse(),
       canFlag,
+      canAssign,
       isCaseOwner,
       canCloseCase,
       // Precomputed sections for direct rendering on the client
@@ -304,15 +322,25 @@ export const getCaseById = async (req, res) => {
           caseDetailItems.push({ label: 'Reported By', value: toStr(caseData.reportedBy) });
         }
 
-        if (typeof caseData.isAssigned === 'boolean') caseDetailItems.push({ label: 'Assigned', value: caseData.isAssigned ? 'Yes' : 'No' });
+        if (typeof caseData.isAssigned === 'boolean') {
+          const assignedItem = { 
+            label: 'Assigned', 
+            value: caseData.isAssigned ? 'Yes' : 'No'
+          };
+          // Make "No" clickable for police/volunteer when case is not assigned
+          if (!caseData.isAssigned && (userRole === 'police' || userRole === 'volunteer') && isAuthenticated) {
+            assignedItem.isClickable = true;
+          }
+          caseDetailItems.push(assignedItem);
+        }
         if (caseData.addedBy) {
           const item = { 
             label: 'Added By', 
             value: toStr(caseData.addedBy)
           };
           
-          // Only add link for police users
-          if (userRole === 'police') {
+          // Only add link for police and volunteers
+          if (userRole === 'police' || userRole === 'volunteer') {
             item.link = `/caseOwnerProfile?caseOwner=${caseData.caseOwner}`;
           }
           

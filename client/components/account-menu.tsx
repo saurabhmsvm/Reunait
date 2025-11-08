@@ -130,7 +130,7 @@ export function AccountMenu() {
                     <Button 
                         variant="outline" 
                         size="icon" 
-                        className="h-8 w-8 rounded-full cursor-pointer hover:scale-105 transition-transform duration-200 ease-out focus:outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
+                        className="h-8 w-8 rounded-full cursor-pointer hover:bg-accent hover:text-accent-foreground transition-all duration-200 ease-out focus:outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
                         style={{ outline: 'none', boxShadow: 'none' }}
                     >
                         {avatar ? (

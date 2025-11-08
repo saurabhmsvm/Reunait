@@ -1,10 +1,6 @@
 import { currentUser } from '@clerk/nextjs/server'
 import { redirect, notFound } from 'next/navigation'
-import { Card } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import Link from 'next/link'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { EllipsisVertical } from 'lucide-react'
+import { FlaggedClient } from '@/components/volunteer/FlaggedClient'
 
 export default async function FlaggedCasesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const user = await currentUser()
@@ -21,56 +17,7 @@ export default async function FlaggedCasesPage({ searchParams }: { searchParams:
         <h1 className="text-xl lg:text-2xl font-semibold tracking-tight">Flagged Cases</h1>
       </div>
 
-      {/* Filters */}
-      <div className="mb-4 flex items-center gap-2">
-        <form action="/volunteer/flagged" className="flex items-center gap-2">
-          <label htmlFor="country" className="text-sm text-muted-foreground">Country</label>
-          <select id="country" name="country" defaultValue={country} className="h-9 rounded-md border bg-background px-2 text-sm">
-            <option value="all">All</option>
-          </select>
-          <Button type="submit" variant="outline" className="cursor-pointer">Apply</Button>
-        </form>
-      </div>
-
-      {/* Table */}
-      <Card className="overflow-hidden">
-        <div className="w-full overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/40">
-              <tr>
-                <th className="text-left px-3 py-2 font-medium">Case</th>
-                <th className="text-left px-3 py-2 font-medium">Status</th>
-                <th className="text-left px-3 py-2 font-medium">Country</th>
-                <th className="text-right px-3 py-2 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="px-3 py-2 max-w-[260px] truncate">
-                  <Link href="/cases/placeholder" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline cursor-pointer">—</Link>
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">—</td>
-                <td className="px-3 py-2 whitespace-nowrap">—</td>
-                <td className="px-3 py-2">
-                  <div className="flex justify-end">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer">
-                          <EllipsisVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem className="cursor-pointer">Unflag</DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-600 cursor-pointer">Hide</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      <FlaggedClient initialCountry={country} />
     </div>
   )
 }

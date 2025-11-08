@@ -62,4 +62,25 @@ export const config = {
     // Google Gemini
     geminiApiKey: process.env.GEMINI_API_KEY,
     geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite',
+    
+    // Presigned URL Expiration (in seconds)
+    presignedUrlExpiry: parseInt(process.env.PRESIGNED_URL_EXPIRY_SECONDS) || 180,
+    
+    // Resend Email Configuration
+    resend: {
+        apiKey: process.env.RESEND_API_KEY,
+        fromAddress: process.env.RESEND_FROM_EMAIL || 'notifications@resend.dev',
+        fromName: process.env.RESEND_FROM_NAME || 'FindMe',
+    },
+    // Resend Template IDs (dashboard-managed templates)
+    // Template variants: green (success), blue (info), red (alert), welcome (special)
+    resendTemplates: {
+        green: process.env.RESEND_TEMPLATE_GREEN,
+        blue: process.env.RESEND_TEMPLATE_BLUE,
+        red: process.env.RESEND_TEMPLATE_RED,
+        welcome: process.env.RESEND_TEMPLATE_WELCOME,
+    },
+    
+    // Frontend URL for email links (without /api suffix)
+    frontendUrl: process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL?.replace('/api', '') || 'https://yourdomain.com',
 }; 

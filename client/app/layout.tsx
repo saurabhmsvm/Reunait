@@ -55,9 +55,7 @@ export default function RootLayout({
                   <NotificationFetcher />
                 </ClientOnly>
                 <div className="min-h-screen flex flex-col">
-                  <ClientOnly>
-                    <Navbar />
-                  </ClientOnly>
+                  <Navbar />
                   <main className="flex-1 pt-24">
                     <OnboardingGate>
                       {children}

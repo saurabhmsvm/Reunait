@@ -49,6 +49,7 @@ export interface CaseDetail {
   caseOwner?: string;
   lastSearched?: string;
   canFlag?: boolean;
+  canAssign?: boolean;
   isCaseOwner?: boolean;
   canCloseCase?: boolean;
   lastSearchedTime?: string;
@@ -59,7 +60,7 @@ export interface CaseDetail {
     phoneNumber?: string
     isRead: boolean
   }>;
-  sections?: { title: string; items: { label: string; value: string }[] }[];
+  sections?: { title: string; items: { label: string; value: string; link?: string; isClickable?: boolean }[] }[];
   similarCases?: Case[];
 }
 

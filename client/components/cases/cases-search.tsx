@@ -80,13 +80,13 @@ export function CasesSearch({ onSearch, onClear, loading = false, hasCasesDispla
     return (user.publicMetadata as any)?.role || 'general_user'
   }, [user])
 
-  // Check if current search is a user search (police typing "user:")
+  // Check if current search is a user search (police or volunteer typing "user:")
   const isUserSearch = useMemo(() => {
     const keyword = (filters.keyword || "").toLowerCase().trim()
-    return userRole === 'police' && keyword.startsWith('user:')
+    return (userRole === 'police' || userRole === 'volunteer') && keyword.startsWith('user:')
   }, [filters.keyword, userRole])
 
-  // Show dropdown only when: police + user: search + no cases displayed
+  // Show dropdown only when: police/volunteer + user: search + no cases displayed
   const shouldShowDropdown = useMemo(() => {
     return isUserSearch && !hasCasesDisplayed
   }, [isUserSearch, hasCasesDisplayed])
@@ -539,7 +539,7 @@ export function CasesSearch({ onSearch, onClear, loading = false, hasCasesDispla
                     <div className="px-4 py-4 text-sm text-muted-foreground text-center">Searching users…</div>
                   )}
                   {!suggestionsLoading && suggestions.length === 0 && (
-                    <div className="px-4 py-4 text-sm text-muted-foreground text-center">No users found</div>
+                    <div className="px-4 py-4 text-sm text-muted-foreground text-center">No users found. Try searching by name, email, or phone number.</div>
                   )}
                   {!suggestionsLoading && suggestions.map((item, idx) => {
                     // Extract search term after "user:" for highlighting

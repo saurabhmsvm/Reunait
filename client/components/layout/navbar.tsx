@@ -124,7 +124,7 @@ const handleButtonClick = React.useCallback((href: string) => {
                             <Button 
                                 onClick={() => handleButtonClick('/register-case')}
                                 disabled={isLoading}
-                                className="flex items-center gap-1.5 hover:scale-105 transition-all duration-300 font-semibold shadow-md hover:shadow-lg bg-gradient-to-r from-primary to-primary/90 text-primary-foreground border-0 rounded-lg px-3 py-2 h-9 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
+                                className="flex items-center gap-1.5 transition-all duration-300 font-semibold shadow-md hover:shadow-lg hover:opacity-90 bg-gradient-to-r from-primary to-primary/90 text-primary-foreground border-0 rounded-lg px-3 py-2 h-9 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
                             >
                                 <Plus className="h-4 w-4" />
                                 <span className="text-sm">Report</span>
@@ -140,7 +140,7 @@ const handleButtonClick = React.useCallback((href: string) => {
                                             onClick={() => handleButtonClick('/sign-in')}
                                             disabled={isLoading}
                                             variant="outline" 
-                                            className="h-9 px-4 text-sm cursor-pointer hover:scale-110 transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed"
+                                            className="h-9 px-4 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed"
                                         >
                                             Sign in
                                         </Button>
@@ -163,7 +163,7 @@ const handleButtonClick = React.useCallback((href: string) => {
                             <Button 
                                 onClick={() => handleButtonClick('/register-case')}
                                 disabled={isLoading}
-                                className="flex items-center gap-2 font-semibold shadow-md hover:shadow-lg bg-gradient-to-r from-primary to-primary/90 text-primary-foreground border-0 rounded-lg px-4 py-2 h-10 cursor-pointer hover:scale-110 transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed"
+                                className="flex items-center gap-2 font-semibold shadow-md hover:shadow-lg hover:opacity-90 bg-gradient-to-r from-primary to-primary/90 text-primary-foreground border-0 rounded-lg px-4 py-2 h-10 cursor-pointer transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed"
                             >
                                 <Plus className="h-4 w-4" />
                                 <span className="hidden md:inline">Report Case</span>
@@ -171,7 +171,7 @@ const handleButtonClick = React.useCallback((href: string) => {
                             </Button>
                             {/* Mobile buttons - always visible */}
 						<Link href="/donate" className="cursor-pointer" onClick={() => startLoading({ expectRouteChange: pathname !== '/donate' })}>
-                                <Button variant="outline" size="icon" className="h-9 w-9 cursor-pointer hover:scale-110 hover:shadow-lg transition-all duration-300 ease-in-out group" aria-label="Buy me a coffee">
+                                <Button variant="outline" size="icon" className="h-9 w-9 cursor-pointer hover:bg-accent hover:text-accent-foreground hover:shadow-lg transition-all duration-300 ease-in-out group" aria-label="Buy me a coffee">
                                     <CupSoda className="h-5 w-5 transition-transform duration-300 group-hover:rotate-12" />
                                 </Button>
                             </Link>
@@ -189,7 +189,7 @@ const handleButtonClick = React.useCallback((href: string) => {
                                     onClick={() => handleButtonClick('/sign-in')}
                                     disabled={isLoading}
                                     variant="outline" 
-                                    className="h-10 px-4 text-sm cursor-pointer hover:scale-110 transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed"
+                                    className="h-10 px-4 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed"
                                 >
                                     Sign in
                                 </Button>
@@ -207,7 +207,7 @@ const handleButtonClick = React.useCallback((href: string) => {
 						{/* Centered actions */}
 						<div className="w-full items-center justify-center gap-4 mb-3 flex">
                         <Link href="/donate" className="cursor-pointer" onClick={() => { setMenuState(false); startLoading({ expectRouteChange: pathname !== '/donate' }) }}>
-								<Button variant="outline" size="icon" className="h-10 w-10 cursor-pointer hover:scale-110 hover:shadow-lg transition-all duration-300 ease-in-out group" aria-label="Buy me a coffee">
+								<Button variant="outline" size="icon" className="h-10 w-10 cursor-pointer hover:bg-accent hover:text-accent-foreground hover:shadow-lg transition-all duration-300 ease-in-out group" aria-label="Buy me a coffee">
 									<CupSoda className="h-5 w-5 transition-transform duration-300 group-hover:rotate-12" />
 								</Button>
 							</Link>

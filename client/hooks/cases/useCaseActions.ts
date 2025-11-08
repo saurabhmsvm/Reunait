@@ -212,7 +212,7 @@ export const useCaseActions = ({ data, initialNow }: UseCaseActionsProps) => {
   }
 
   const handleReportSuccess = () => {
-    showSuccess('Report submitted successfully! Thank you for your contribution.')
+    showSuccess('Report submitted successfully!', 'Thank you for your contribution.')
   }
 
   // Calculate remaining time for display

@@ -212,7 +212,7 @@ export const registerCase = async (req, res) => {
                 { clerkUserId: req.auth.userId },
                 { $push: { notifications: notificationData } },
                 { new: true }
-            ).select('notifications').lean();
+            ).select('notifications email').lean();
 
             // Broadcast notification via SSE
             if (updatedUser && updatedUser.notifications && updatedUser.notifications.length > 0) {
@@ -235,20 +235,29 @@ export const registerCase = async (req, res) => {
                 }
             }
 
-            // Update Clerk metadata to increment unread count
-            try {
-                const user = await clerkClient.users.getUser(req.auth.userId);
-                const currentCount = user.publicMetadata?.unreadNotificationCount || 0;
-                
-                await clerkClient.users.updateUserMetadata(req.auth.userId, {
-                    publicMetadata: {
-                        ...user.publicMetadata,
-                        unreadNotificationCount: currentCount + 1
-                    }
-                });
-            } catch (error) {
-                console.error('Error updating Clerk metadata for case registration notification:', error);
-                // Don't fail the request if metadata update fails
+            // Send email notification (non-blocking)
+            if (updatedUser && updatedUser.email) {
+                try {
+                    const { sendEmailNotificationAsync } = await import('../services/emailService.js');
+                    await sendEmailNotificationAsync(
+                        updatedUser.email,
+                        'Case Registered Successfully',
+                        `Case for ${req.body.fullName} has been successfully registered and is now live on the platform.`,
+                        {
+                            notificationType: 'case_registered',
+                            userId: req.auth.userId,
+                            caseId: String(savedCase._id),
+                            navigateTo: `/cases/${String(savedCase._id)}`,
+                            fullName: req.body.fullName,
+                            age: req.body.age,
+                            gender: req.body.gender,
+                            lastSeenLocation: req.body.lastSeenLocation,
+                        }
+                    );
+                } catch (error) {
+                    console.error('Error sending email notification (non-blocking):', error);
+                    // Don't fail the request if email fails
+                }
             }
         }
 
@@ -332,22 +341,6 @@ export const registerCase = async (req, res) => {
                             console.error('Error broadcasting police notification:', error);
                             // Don't fail the request if broadcast fails
                         }
-                    }
-
-                    // Update Clerk metadata to increment unread count for police user
-                    try {
-                        const policeUser = await clerkClient.users.getUser(policeUserClerkId);
-                        const currentCount = policeUser.publicMetadata?.unreadNotificationCount || 0;
-                        
-                        await clerkClient.users.updateUserMetadata(policeUserClerkId, {
-                            publicMetadata: {
-                                ...policeUser.publicMetadata,
-                                unreadNotificationCount: currentCount + 1
-                            }
-                        });
-                    } catch (error) {
-                        console.error('Error updating Clerk metadata for police notification:', error);
-                        // Don't fail the request if metadata update fails
                     }
                 }
             } catch (error) {

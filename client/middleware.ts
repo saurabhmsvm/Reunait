@@ -2,7 +2,7 @@ import { clerkMiddleware, createRouteMatcher, clerkClient } from '@clerk/nextjs/
 import { NextResponse } from 'next/server'
 
 // Define route matchers
-const isProtectedRoute = createRouteMatcher(['/profile(.*)', '/register-case(.*)', '/caseOwnerProfile(.*)'])
+const isProtectedRoute = createRouteMatcher(['/profile(.*)', '/register-case(.*)', '/caseOwnerProfile(.*)', '/notifications(.*)'])
 const isAuthRoute = createRouteMatcher(['/sign-in(.*)', '/sign-up(.*)'])
 const isOnboardingRoute = createRouteMatcher(['/onboarding(.*)'])
 
