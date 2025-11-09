@@ -45,6 +45,9 @@ router.post("/users/profile", requireAuth(), async (req, res) => {
             ...(pincode !== undefined ? { pincode } : {}),
             onboardingCompleted: true,
             ipAddress: (req.headers["x-forwarded-for"]?.split(",")[0]?.trim()) || req.ip,
+            // Set isVerified: false for police (pending verification), null for others (not applicable)
+            // Only set if role is provided in the request
+            ...(role !== undefined ? { isVerified: role === 'police' ? false : null } : {}),
         };
 
         // Check if onboarding was just completed (to send welcome email)
@@ -97,15 +100,13 @@ router.post("/users/profile", requireAuth(), async (req, res) => {
                 // Set role as general_user and add verification status
                 clerkMetadata.role = 'general_user';
                 clerkMetadata.isVerified = false;
-                // Also store in MongoDB for efficient querying
-                update.isVerified = false;
+                // isVerified already set in update object above
             } else {
                 // Normal flow for non-police users → clamp to allowed Clerk roles
                 const allowedClerkRoles = new Set(['general_user', 'NGO', 'volunteer']);
                 const existingRole = user?.role;
                 clerkMetadata.role = allowedClerkRoles.has(existingRole) ? existingRole : 'general_user';
-                // isVerified is null for non-police users
-                update.isVerified = null;
+                // isVerified already set in update object above (null for non-police)
             }
 
             await clerkClient.users.updateUserMetadata(userId, {
@@ -252,7 +253,48 @@ router.post("/users/profile", requireAuth(), async (req, res) => {
     } catch (err) {
         try { console.error("[POST /api/users/profile]", err) } catch {}
         if (err && err.code === 11000) {
-            return res.status(409).json({ success: false, message: "Duplicate value for a unique field", details: err.keyValue });
+            // Enhanced duplicate error message with field details
+            const duplicateField = err.keyValue ? Object.keys(err.keyValue)[0] : 'field';
+            const duplicateValue = err.keyValue ? err.keyValue[duplicateField] : 'value';
+            
+            // User-friendly field names
+            const fieldLabels = {
+                'clerkUserId': 'User account',
+                'email': 'Email address',
+                'phoneNumber': 'Phone number',
+                'governmentIdNumber': 'Government ID number',
+                'fullName': 'Name'
+            };
+            
+            const fieldLabel = fieldLabels[duplicateField] || duplicateField;
+            
+            // Mask sensitive values for privacy
+            let displayValue = duplicateValue;
+            if (duplicateField === 'email' && typeof duplicateValue === 'string') {
+                const [localPart, domain] = duplicateValue.split('@');
+                if (localPart && domain) {
+                    const maskedLocal = localPart.length > 2 
+                        ? localPart.substring(0, 2) + '***' 
+                        : '***';
+                    displayValue = `${maskedLocal}@${domain}`;
+                }
+            } else if (duplicateField === 'phoneNumber' && typeof duplicateValue === 'string') {
+                displayValue = duplicateValue.length > 4 
+                    ? '***' + duplicateValue.slice(-4) 
+                    : '***';
+            } else if (duplicateField === 'governmentIdNumber' && typeof duplicateValue === 'string') {
+                displayValue = duplicateValue.length > 4 
+                    ? '***' + duplicateValue.slice(-4) 
+                    : '***';
+            }
+            
+            const message = `This ${fieldLabel.toLowerCase()} (${displayValue}) is already registered. Please use a different ${fieldLabel.toLowerCase()}.`;
+            
+            return res.status(409).json({ 
+                success: false, 
+                message: message,
+                details: err.keyValue 
+            });
         }
         if (err && err.name === 'ValidationError') {
             return res.status(400).json({ success: false, message: "Validation failed", details: err.errors });

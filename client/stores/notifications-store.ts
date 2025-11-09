@@ -37,6 +37,7 @@ export type NotificationsActions = {
   markAllReadOptimistic: (token?: string) => void
   fetchNotifications: (token: string, page?: number) => Promise<any>
   addNotification: (notification: NotificationItem) => void
+  reset: () => void
 }
 
 export type NotificationsStore = NotificationsState & NotificationsActions
@@ -294,6 +295,19 @@ export const createNotificationsStore = (
               unreadCount
             };
           });
+        },
+
+        reset: () => {
+          // Reset state to initial values
+          set(defaultInitState);
+          
+          // Clear persisted storage
+          try {
+            localStorage.removeItem('notifications-storage');
+            localStorage.removeItem('notif:lastSeenAt');
+          } catch (error) {
+            // Silently handle localStorage errors (e.g., in private browsing mode)
+          }
         }
       }),
       {

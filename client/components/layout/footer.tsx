@@ -1,10 +1,15 @@
-"use client"
-
 import { Facebook, Twitter, Instagram, Linkedin } from "lucide-react"
 import { Logo } from "@/components/logo"
 import Link from "next/link"
 
 export function Footer() {
+  const socialLinks = {
+    facebook: process.env.NEXT_PUBLIC_SOCIAL_FACEBOOK_URL || "#",
+    twitter: process.env.NEXT_PUBLIC_SOCIAL_TWITTER_URL || "#",
+    instagram: process.env.NEXT_PUBLIC_SOCIAL_INSTAGRAM_URL || "#",
+    linkedin: process.env.NEXT_PUBLIC_SOCIAL_LINKEDIN_URL || "#",
+  }
+
   return (
     <footer
       role="contentinfo"
@@ -29,28 +34,28 @@ export function Footer() {
               className="flex items-center gap-4 order-2 sm:order-3"
             >
               <Link
-                href="#"
+                href={socialLinks.facebook}
                 className="text-muted-foreground hover:text-primary transition-colors duration-200"
                 aria-label="Visit our Facebook page"
               >
                 <Facebook className="h-5 w-5" />
               </Link>
               <Link
-                href="#"
+                href={socialLinks.twitter}
                 className="text-muted-foreground hover:text-primary transition-colors duration-200"
                 aria-label="Visit our Twitter page"
               >
                 <Twitter className="h-5 w-5" />
               </Link>
               <Link
-                href="#"
+                href={socialLinks.instagram}
                 className="text-muted-foreground hover:text-primary transition-colors duration-200"
                 aria-label="Visit our Instagram page"
               >
                 <Instagram className="h-5 w-5" />
               </Link>
               <Link
-                href="#"
+                href={socialLinks.linkedin}
                 className="text-muted-foreground hover:text-primary transition-colors duration-200"
                 aria-label="Visit our LinkedIn page"
               >

@@ -15,6 +15,17 @@ export function useNotificationsFetch() {
   const hasHydrated = useNotificationsStore(s => s.hasHydrated);
   const isFetchingRef = useRef(false);
   const hasFetchedRef = useRef(false);
+  const userIdRef = useRef<string | null>(null);
+  
+  // Reset fetch flag when user changes (prevents skipping fetch for new user after logout)
+  useEffect(() => {
+    const currentUserId = user?.id || null;
+    if (userIdRef.current !== null && userIdRef.current !== currentUserId) {
+      // User changed - reset fetch flag to allow fetching for new user
+      hasFetchedRef.current = false;
+    }
+    userIdRef.current = currentUserId;
+  }, [user?.id]);
   
   const fetchIfNeeded = useCallback(async () => {
     // Only fetch if user is authenticated
@@ -26,7 +37,7 @@ export function useNotificationsFetch() {
     // Wait until persisted store has hydrated
     if (!hasHydrated) return;
     
-    // Don't fetch if we've already fetched in this session
+    // Don't fetch if we've already fetched in this session for this user
     if (hasFetchedRef.current) return;
     
     // Only fetch if no cache exists (SSE will handle updates)
