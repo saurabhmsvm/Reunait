@@ -191,6 +191,7 @@ export default function ProfileClient({ initialProfile }: { initialProfile?: Pro
     general_user: "General User",
     police: "Police",
     NGO: "NGO",
+    volunteer: "Volunteer",
   }
 
   const RoleBadge = ({ role, isVerified }: { role?: ProfileData["role"], isVerified?: boolean | null }) => {
@@ -369,7 +370,7 @@ export default function ProfileClient({ initialProfile }: { initialProfile?: Pro
       if (profile.role === 'general_user') {
         payload.gender = edit.gender
         payload.dateOfBirth = (edit.dateOfBirth as any) ? format(new Date(edit.dateOfBirth as any), 'yyyy-MM-dd') : undefined
-      } else if (profile.role === 'police' || profile.role === 'NGO') {
+      } else if (profile.role === 'police' || profile.role === 'NGO' || profile.role === 'volunteer') {
         payload.fullName = (edit.orgName || '').trim() || undefined
       }
       Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k])
@@ -457,7 +458,11 @@ export default function ProfileClient({ initialProfile }: { initialProfile?: Pro
                 </div>
                 <div className="mt-5 text-center">
                   <div className="flex items-center justify-center gap-3 flex-wrap">
-                    <h2 className="text-xl lg:text-2xl font-semibold tracking-tight break-words max-w-full">{profile.fullName || "Your profile"}</h2>
+                    <h2 className="text-xl lg:text-2xl font-semibold tracking-tight break-words max-w-full">
+                      {profile.role !== 'general_user'
+                        ? ((profile.orgName && profile.orgName.trim()) || profile.fullName || "Your profile")
+                        : (profile.fullName || "Your profile")}
+                    </h2>
                     <RoleBadge role={profile.role} isVerified={isVerified} />
                   </div>
                   <div className="mt-1 text-sm lg:text-base text-muted-foreground">
@@ -489,6 +494,7 @@ export default function ProfileClient({ initialProfile }: { initialProfile?: Pro
                   {profile.role === "general_user" && renderIndividual(profile)}
                   {profile.role === "police" && renderPolice(profile)}
                   {profile.role === "NGO" && renderNGO(profile)}
+                  {profile.role === "volunteer" && renderNGO(profile)}
                 </div>
               </div>
             )}

@@ -1087,7 +1087,7 @@ export default function RegisterCasePage() {
                     maxImages={2}
                   />
 
-                  {user?.publicMetadata?.role === "police" && (
+                  {(user?.publicMetadata?.role === "police" || user?.publicMetadata?.role === "volunteer") && (
                     <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/40">
                       <input
                         type="checkbox"

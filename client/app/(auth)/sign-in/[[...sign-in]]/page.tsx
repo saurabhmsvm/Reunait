@@ -226,6 +226,7 @@ export default function SignInCatchAllPage() {
               </div>
               <div className="flex justify-end pt-1">
                 <button 
+                  type="button"
                   onClick={handleForgotPasswordClick}
                   disabled={isNavigatingToReset}
                   className="text-sm text-primary hover:underline cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"

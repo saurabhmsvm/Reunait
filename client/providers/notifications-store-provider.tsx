@@ -4,6 +4,7 @@ import { type ReactNode, createContext, useRef, useContext } from 'react'
 import { useStore } from 'zustand'
 
 import { type NotificationsStore, createNotificationsStore } from '@/stores/notifications-store'
+import { useUser } from '@clerk/nextjs'
 
 export type NotificationsStoreApi = ReturnType<typeof createNotificationsStore>
 
@@ -18,9 +19,16 @@ export interface NotificationsStoreProviderProps {
 export const NotificationsStoreProvider = ({
   children,
 }: NotificationsStoreProviderProps) => {
+  const { user } = useUser()
+  const persistKey = `notifications-storage:${user?.id ?? 'anon'}`
+
   const storeRef = useRef<NotificationsStoreApi | null>(null)
-  if (storeRef.current === null) {
-    storeRef.current = createNotificationsStore()
+  const keyRef = useRef<string | null>(null)
+
+  // Create or recreate the store when the user (and thus the persist key) changes
+  if (storeRef.current === null || keyRef.current !== persistKey) {
+    storeRef.current = createNotificationsStore(undefined, { persistKey, ownerUserId: user?.id ?? null })
+    keyRef.current = persistKey
   }
 
   return (

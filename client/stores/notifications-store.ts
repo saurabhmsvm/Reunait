@@ -87,7 +87,11 @@ async function postJson(path: string, body: any, token?: string): Promise<void> 
 
 export const createNotificationsStore = (
   initState: NotificationsState = defaultInitState,
+  options?: { persistKey?: string; ownerUserId?: string | null }
 ) => {
+  const persistName = options?.persistKey || 'notifications-storage'
+  const lastSeenAtKey = options?.ownerUserId ? `notif:lastSeenAt:${options.ownerUserId}` : 'notif:lastSeenAt'
+
   return createStore<NotificationsStore>()(
     persist(
       (set, get) => ({
@@ -154,7 +158,7 @@ export const createNotificationsStore = (
         setLastSeenAt: () => {
           const ts = new Date().toISOString()
           set({ lastSeenAt: ts })
-          try { localStorage.setItem('notif:lastSeenAt', ts) } catch {}
+          try { localStorage.setItem(lastSeenAtKey, ts) } catch {}
         },
 
         enqueueRead: (id: string) => {
@@ -303,6 +307,9 @@ export const createNotificationsStore = (
           
           // Clear persisted storage
           try {
+            localStorage.removeItem(persistName);
+            localStorage.removeItem(lastSeenAtKey);
+            // Backward compatibility keys cleanup
             localStorage.removeItem('notifications-storage');
             localStorage.removeItem('notif:lastSeenAt');
           } catch (error) {
@@ -311,7 +318,7 @@ export const createNotificationsStore = (
         }
       }),
       {
-        name: 'notifications-storage',
+        name: persistName,
         storage: createJSONStorage(() => localStorage),
         onRehydrateStorage: () => (state, error) => {
           // Mark store as hydrated once persistence completes (success or error)

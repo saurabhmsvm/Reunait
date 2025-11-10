@@ -125,8 +125,43 @@ export const registerCase = async (req, res) => {
             }
         }
 
-        // Check if verification should be bypassed (police only)
-        const bypassVerification = req.body.bypassVerification === 'true' && req.body.reportedBy === 'police';
+        // Validate bypassVerification: if true, verify user is police or volunteer
+        // FormData sends all values as strings, so bypassVerification will be 'true' or 'false' (string)
+        const requestedBypass = req.body.bypassVerification === 'true';
+        let bypassVerification = false;
+        
+        if (requestedBypass) {
+            // Get user's role from Clerk (source of truth)
+            const clerkUserId = req.auth?.userId;
+            if (!clerkUserId) {
+                return res.status(401).json({
+                    status: false,
+                    message: 'Unauthorized. Please sign in to register a case.'
+                });
+            }
+
+            try {
+                const clerkUser = await clerkClient.users.getUser(clerkUserId);
+                const userRole = clerkUser.publicMetadata?.role || 'general_user';
+                
+                // Only police and volunteer can bypass verification
+                if (userRole !== 'police' && userRole !== 'volunteer') {
+                    return res.status(403).json({
+                        status: false,
+                        message: 'Access denied. Only police and volunteer users can bypass AI verification.'
+                    });
+                }
+
+                // User is authorized, allow bypass
+                bypassVerification = true;
+            } catch (error) {
+                console.error('Error verifying user role for bypass verification:', error);
+                return res.status(500).json({
+                    status: false,
+                    message: 'Failed to verify user authorization. Please try again.'
+                });
+            }
+        }
 
         // Create new case in MongoDB with default values for missing fields
         const newCase = new Case({
