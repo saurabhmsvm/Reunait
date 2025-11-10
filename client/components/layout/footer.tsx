@@ -35,6 +35,8 @@ export function Footer() {
             >
               <Link
                 href={socialLinks.facebook}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-muted-foreground hover:text-primary transition-colors duration-200"
                 aria-label="Visit our Facebook page"
               >
@@ -42,6 +44,8 @@ export function Footer() {
               </Link>
               <Link
                 href={socialLinks.twitter}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-muted-foreground hover:text-primary transition-colors duration-200"
                 aria-label="Visit our Twitter page"
               >
@@ -49,6 +53,8 @@ export function Footer() {
               </Link>
               <Link
                 href={socialLinks.instagram}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-muted-foreground hover:text-primary transition-colors duration-200"
                 aria-label="Visit our Instagram page"
               >
@@ -56,6 +62,8 @@ export function Footer() {
               </Link>
               <Link
                 href={socialLinks.linkedin}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-muted-foreground hover:text-primary transition-colors duration-200"
                 aria-label="Visit our LinkedIn page"
               >

@@ -314,9 +314,9 @@ export default async function Home() {
       case "testimonials":
         return (
           <section key={section.section} className="py-20">
-            <div className="container mx-auto px-6">
+            <div className="container mx-auto">
               <div className="max-w-6xl mx-auto">
-                <div className="text-center mb-16">
+                <div className="text-center mb-16 px-6">
                   <Typography variant="h2" as="h2" className="text-4xl font-bold mb-6">
                     {section.title}
                   </Typography>
@@ -332,35 +332,35 @@ export default async function Home() {
 
                 {/* Infinite horizontal slider using the new component */}
                 <div className="relative overflow-hidden">
-                  <div className="relative py-6">
+                  <div className="relative py-6 sm:py-8">
                     <InfiniteSlider
                       speedOnHover={20}
                       speed={40}
-                      gap={50}>
+                      gap={24}>
                       {section.data.testimonials.map((testimonial: any, index: number) => (
-                        <div key={index} className="inline-flex w-[16rem] sm:w-[20rem] md:w-[24rem] lg:w-[26rem] shrink-0">
-                          <div className="relative bg-gradient-to-br from-background via-background/95 to-muted/20 dark:from-background dark:via-background/90 dark:to-muted/10 backdrop-blur-sm border border-border/50 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg h-full flex flex-col">
-                            {/* Decorative corner accent - smaller on mobile */}
-                            <div className="absolute top-0 right-0 w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-bl from-primary/10 dark:from-primary/20 to-transparent rounded-bl-xl sm:rounded-bl-2xl rounded-tr-xl sm:rounded-tr-2xl"></div>
+                      <div key={index} className="w-[85vw] min-w-[85vw] max-w-[85vw] sm:w-[28rem] sm:min-w-[28rem] sm:max-w-[28rem] md:w-[30rem] md:min-w-[30rem] md:max-w-[30rem] lg:w-[32rem] lg:min-w-[32rem] lg:max-w-[32rem] flex-shrink-0 flex-grow-0 snap-center">
+                        <div className="relative bg-gradient-to-br from-background via-background/95 to-muted/20 dark:from-background dark:via-background/90 dark:to-muted/10 backdrop-blur-sm border border-border/50 rounded-xl sm:rounded-2xl p-5 sm:p-6 md:p-7 shadow-lg hover:shadow-xl transition-shadow duration-300 h-[280px] sm:h-[320px] md:h-[340px] w-full flex flex-col overflow-hidden">
+                            {/* Decorative corner accent */}
+                            <div className="absolute top-0 right-0 w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 bg-gradient-to-bl from-primary/10 dark:from-primary/20 to-transparent rounded-bl-xl sm:rounded-bl-2xl rounded-tr-xl sm:rounded-tr-2xl"></div>
                             
-                            {/* Quote icon - smaller on mobile */}
-                            <div className="absolute top-3 left-3 sm:top-4 sm:left-4 w-6 h-6 sm:w-8 sm:h-8 bg-primary/10 dark:bg-primary/25 rounded-full flex items-center justify-center shadow-sm shadow-primary/10 dark:shadow-primary/20 ring-1 ring-primary/10 dark:ring-primary/20">
-                              <svg className="w-3 h-3 sm:w-4 sm:h-4 text-primary" fill="currentColor" viewBox="0 0 24 24">
+                            {/* Quote icon */}
+                            <div className="absolute top-4 left-4 sm:top-5 sm:left-5 md:top-6 md:left-6 w-7 h-7 sm:w-9 sm:h-9 md:w-10 md:h-10 bg-primary/10 dark:bg-primary/25 rounded-full flex items-center justify-center shadow-md shadow-primary/10 dark:shadow-primary/20 ring-1 ring-primary/10 dark:ring-primary/20">
+                              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-primary" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h4v10h-10z"/>
                               </svg>
                             </div>
                             
-                            <Typography variant="muted" className="text-xs sm:text-sm mb-4 sm:mb-6 italic leading-relaxed flex-grow pl-6 sm:pl-8 text-foreground/80">
+                          <Typography variant="muted" className="text-sm sm:text-base mb-5 sm:mb-6 md:mb-7 italic leading-relaxed sm:leading-loose pl-8 sm:pl-10 md:pl-12 text-foreground/85 break-words whitespace-pre-wrap hyphens-auto max-h-[160px] sm:max-h-[200px] md:max-h-[220px] overflow-y-auto pr-2">
                               {testimonial.message}
                             </Typography>
                             
-                            {/* Name with accent typography - smaller on mobile */}
-                            <div className="mt-auto pt-3 sm:pt-4 border-t border-border/30">
+                            {/* Name with accent typography */}
+                            <div className="mt-auto pt-4 sm:pt-5 md:pt-6 border-t border-border/40">
                               <div className="text-right">
-                                <div className="font-accent text-sm sm:text-lg font-bold text-primary tracking-wide">
+                              <div className="font-accent text-base sm:text-lg md:text-xl font-bold text-primary tracking-wide break-words">
                                   {testimonial.name}
                                 </div>
-                                <div className="w-8 sm:w-12 h-0.5 bg-gradient-to-r from-transparent to-primary/60 ml-auto mt-1"></div>
+                                <div className="w-10 sm:w-14 md:w-16 h-0.5 bg-gradient-to-r from-transparent via-primary/40 to-primary/60 ml-auto mt-1.5 sm:mt-2"></div>
                               </div>
                             </div>
                           </div>
@@ -368,15 +368,16 @@ export default async function Home() {
                       ))}
                     </InfiniteSlider>
 
-                    <div className="bg-gradient-to-r from-background absolute inset-y-0 left-0 w-20"></div>
-                    <div className="bg-gradient-to-l from-background absolute inset-y-0 right-0 w-20"></div>
+                    {/* Glass morphic fade effect - hidden on mobile, visible on sm and above */}
+                    <div className="hidden sm:block bg-gradient-to-r from-background absolute inset-y-0 left-0 w-24 md:w-32"></div>
+                    <div className="hidden sm:block bg-gradient-to-l from-background absolute inset-y-0 right-0 w-24 md:w-32"></div>
                     <ProgressiveBlur
-                      className="pointer-events-none absolute left-0 top-0 h-full w-20"
+                      className="hidden sm:block pointer-events-none absolute left-0 top-0 h-full w-24 md:w-32"
                       direction="left"
                       blurIntensity={1}
                     />
                     <ProgressiveBlur
-                      className="pointer-events-none absolute right-0 top-0 h-full w-20"
+                      className="hidden sm:block pointer-events-none absolute right-0 top-0 h-full w-24 md:w-32"
                       direction="right"
                       blurIntensity={1}
                     />

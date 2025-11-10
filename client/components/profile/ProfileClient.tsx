@@ -34,6 +34,7 @@ type ProfileData = {
   country?: string
   pincode?: string
   role?: "general_user" | "police" | "NGO" | "volunteer" | "police_denied"
+  isVerified?: boolean | null
   cases?: Case[]
   casesPagination?: {
     currentPage: number
@@ -128,8 +129,8 @@ export default function ProfileClient({ initialProfile }: { initialProfile?: Pro
   const [error, setError] = React.useState<string | null>(null)
   const [profile, setProfile] = React.useState<ProfileData | null>(initialProfile ?? null)
   
-  // Get isVerified from Clerk metadata (only when user is loaded)
-  const isVerified = user?.publicMetadata?.isVerified as boolean | undefined
+  // Get isVerified from profile data (MongoDB is source of truth)
+  const isVerified = profile?.isVerified
 
   const [isEditing, setIsEditing] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
@@ -192,17 +193,9 @@ export default function ProfileClient({ initialProfile }: { initialProfile?: Pro
     NGO: "NGO",
   }
 
-  const RoleBadge = ({ role, isVerified, isLoaded }: { role?: ProfileData["role"], isVerified?: boolean, isLoaded?: boolean }) => {
-    
-    // While Clerk user is not loaded, show a subtle skeleton pill in place of the badge
-    if (!isLoaded) {
-      return (
-        <span className="inline-block h-6 lg:h-7 w-40 rounded-full bg-muted animate-pulse" aria-hidden="true" />
-      )
-    }
-
-    // Show "Police (Pending Verification)" when Clerk indicates unverified, regardless of stored role
-    if (isLoaded && isVerified === false) {
+  const RoleBadge = ({ role, isVerified }: { role?: ProfileData["role"], isVerified?: boolean | null }) => {
+    // Show "Police (Pending Verification)" when isVerified is false (MongoDB is source of truth)
+    if (isVerified === false) {
       return (
         <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-700 px-2.5 py-0.5 text-xs lg:text-sm font-medium max-w-full">
           <BadgeCheck className="h-3.5 w-3.5 lg:h-4 lg:w-4 flex-shrink-0" />
@@ -446,7 +439,7 @@ export default function ProfileClient({ initialProfile }: { initialProfile?: Pro
               <div className="mb-5 relative">
                 <div className="h-24 w-full rounded-2xl bg-gray-100 dark:bg-gray-800 pointer-events-none" />
                 <div className="absolute top-2 right-2 z-30">
-                  {!isEditing && !(isLoaded && isVerified === false) ? (
+                  {!isEditing && isVerified !== false ? (
                     <Button variant="outline" size="icon" className="cursor-pointer" onClick={() => { setIsEditing(true); setEdit(prev => { const p = profile as ProfileData | undefined; if (!p) return prev as any; const effectiveOrg = p.role !== 'general_user' ? ((p.orgName && p.orgName.trim()) || (p.fullName && p.fullName.trim()) || '') : (p.fullName || ''); return { ...(p as any), orgName: effectiveOrg }; }); setMobileDetailsOpen(true); setValidationErrors({}) }} aria-label="Edit profile">
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -465,7 +458,7 @@ export default function ProfileClient({ initialProfile }: { initialProfile?: Pro
                 <div className="mt-5 text-center">
                   <div className="flex items-center justify-center gap-3 flex-wrap">
                     <h2 className="text-xl lg:text-2xl font-semibold tracking-tight break-words max-w-full">{profile.fullName || "Your profile"}</h2>
-                    <RoleBadge role={profile.role} isVerified={isVerified} isLoaded={isLoaded} />
+                    <RoleBadge role={profile.role} isVerified={isVerified} />
                   </div>
                   <div className="mt-1 text-sm lg:text-base text-muted-foreground">
                     {profile.email && (<span className="inline-flex items-center gap-1.5 max-w-full"><Mail className="h-3.5 w-3.5 lg:h-4 lg:w-4 flex-shrink-0" /><span className="break-words">{profile.email}</span></span>)}

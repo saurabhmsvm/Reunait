@@ -97,29 +97,32 @@ router.post("/verifications/:clerkUserId/approve", requireAuth(), requireVolunte
     const { clerkUserId } = req.params;
     if (!clerkUserId) return res.status(400).json({ success: false, message: "Missing clerkUserId" });
 
-    let cu;
-    try {
-      cu = await clerkClient.users.getUser(clerkUserId);
-    } catch {
+    // Check if user exists and is already approved (using MongoDB as source of truth)
+    const existingUser = await User.findOne({ clerkUserId }).select('role isVerified').lean();
+    if (!existingUser) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    const meta = cu?.publicMetadata || {};
-    if (meta.role === "police" && meta.isVerified === true) {
+    if (existingUser.role === "police" && existingUser.isVerified === true) {
       return res.json({ success: true, message: "Already approved." });
     }
 
-    // Update Clerk metadata
-    await clerkClient.users.updateUserMetadata(clerkUserId, {
-      publicMetadata: { role: "police", isVerified: true, lastUpdated: new Date().toISOString() },
-    });
-
-    // Update Mongo User role and verification status
+    // Update Mongo User role and verification status (MongoDB is source of truth)
     const userDoc = await User.findOneAndUpdate(
       { clerkUserId },
       { $set: { role: "police", isVerified: true } },
       { new: true }
     ).lean();
+
+    // Update Clerk metadata with role only (isVerified not stored in Clerk)
+    try {
+      await clerkClient.users.updateUserMetadata(clerkUserId, {
+        publicMetadata: { role: "police", lastUpdated: new Date().toISOString() },
+      });
+    } catch (error) {
+      // Log but don't fail - MongoDB update is the source of truth
+      console.error('Failed to update Clerk metadata:', error);
+    }
 
     // Cascade: update user's cases to reflect police role
     if (userDoc && Array.isArray(userDoc.cases) && userDoc.cases.length > 0) {

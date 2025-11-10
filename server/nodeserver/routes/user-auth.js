@@ -97,16 +97,13 @@ router.post("/users/profile", requireAuth(), async (req, res) => {
 
             // Handle police role verification
             if (role === 'police') {
-                // Set role as general_user and add verification status
+                // Set role as general_user (isVerified stored in MongoDB only)
                 clerkMetadata.role = 'general_user';
-                clerkMetadata.isVerified = false;
-                // isVerified already set in update object above
             } else {
                 // Normal flow for non-police users → clamp to allowed Clerk roles
                 const allowedClerkRoles = new Set(['general_user', 'NGO', 'volunteer']);
                 const existingRole = user?.role;
                 clerkMetadata.role = allowedClerkRoles.has(existingRole) ? existingRole : 'general_user';
-                // isVerified already set in update object above (null for non-police)
             }
 
             await clerkClient.users.updateUserMetadata(userId, {
@@ -151,6 +148,7 @@ router.post("/users/profile", requireAuth(), async (req, res) => {
             country: userCountry,
             pincode: userPincode,
             role: userRole,
+            isVerified: userIsVerified,
             cases: userCases,
             notifications: userNotifications,
             onboardingCompleted: userOnboarding,
@@ -239,6 +237,7 @@ router.post("/users/profile", requireAuth(), async (req, res) => {
                 country: userCountry,
                 pincode: userPincode,
                 role: userRole,
+                isVerified: userIsVerified ?? null,
                 cases,
                 notifications: userNotifications,
                 onboardingCompleted: !!userOnboarding,
@@ -347,6 +346,7 @@ router.get("/users/profile", requireAuth(), async (req, res) => {
             country,
             pincode,
             role,
+            isVerified,
             cases: caseIds,
             notifications,
             onboardingCompleted: oc,
@@ -436,6 +436,7 @@ router.get("/users/profile", requireAuth(), async (req, res) => {
                 country,
                 pincode,
                 role,
+                isVerified: isVerified ?? null,
                 cases,
                 notifications,
                 onboardingCompleted: !!oc,

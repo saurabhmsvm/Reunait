@@ -1,4 +1,5 @@
 import HomepageSection from '../model/homepageModel.js';
+import redis from '../services/redisClient.js';
 
 // Submit a new testimonial
 export const submitTestimonial = async (req, res) => {
@@ -37,6 +38,14 @@ export const submitTestimonial = async (req, res) => {
     
     // Save the updated section
     await testimonialsSection.save();
+
+    // Invalidate homepage cache so next request fetches fresh data with new testimonial
+    try {
+      await redis.set('homepage:cache:enabled', 'false');
+    } catch (e) {
+      // Non-blocking: log error but don't fail the request
+      console.error('Failed to invalidate homepage cache:', e?.message || e);
+    }
 
     res.status(201).json({
       success: true,
