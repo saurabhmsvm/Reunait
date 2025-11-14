@@ -12,7 +12,7 @@ export const assignCase = async (req, res) => {
   try {
     const { id } = req.params;
     const { userId: targetUserId } = req.body;
-    const { userId: requesterId } = req.auth || {};
+    const { userId: requesterId } = req.auth() || {};
 
     // Validate authentication
     if (!requesterId) {

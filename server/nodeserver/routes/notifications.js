@@ -12,7 +12,7 @@ const MAX_CONNECTIONS = parseInt(process.env.MAX_NOTIFICATIONS_CONNECTIONS || '1
 // POST /api/notifications/read - mark one or many as read (idempotent)
 router.post('/notifications/read', requireAuth(), async (req, res) => {
   try {
-    const { userId } = req.auth || {};
+    const { userId } = req.auth() || {};
     const ids = Array.isArray(req.body?.ids) ? req.body.ids.filter(Boolean) : [];
     if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
     if (ids.length === 0) return res.json({ success: true, updatedIds: [], alreadyReadIds: [], invalidIds: [] });
@@ -52,7 +52,7 @@ router.post('/notifications/read', requireAuth(), async (req, res) => {
 // POST /api/notifications/read-all - mark all as read (idempotent)
 router.post('/notifications/read-all', requireAuth(), async (req, res) => {
   try {
-    const { userId } = req.auth || {};
+    const { userId } = req.auth() || {};
     if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
     
     await User.updateOne(
@@ -69,7 +69,7 @@ router.post('/notifications/read-all', requireAuth(), async (req, res) => {
 // GET /api/notifications?page=1&limit=20&filter=unread (optional filter: 'unread' or 'all')
 router.get('/notifications', requireAuth(), async (req, res) => {
   try {
-    const { userId } = req.auth || {};
+    const { userId } = req.auth() || {};
     if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
     
     const page = parseInt(req.query.page) || 1;
@@ -136,7 +136,7 @@ router.get('/notifications', requireAuth(), async (req, res) => {
 router.get('/notifications/stream', requireAuth(), async (req, res) => {
   const connectionId = `conn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   try {
-    const { userId } = req.auth || {};
+    const { userId } = req.auth() || {};
     
     if (!userId) {
       return res.status(401).json({ success: false, message: 'Unauthorized' });

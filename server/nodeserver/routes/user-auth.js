@@ -9,7 +9,7 @@ const router = express.Router();
 
 router.post("/users/profile", requireAuth(), async (req, res) => {
     try {
-        const { userId } = req.auth || {};
+        const { userId } = req.auth() || {};
         if (!userId) {
             return res.status(401).json({ success: false, message: "Unauthorized" });
         }
@@ -305,7 +305,7 @@ router.post("/users/profile", requireAuth(), async (req, res) => {
 // Return current user's profile
 router.get("/users/profile", requireAuth(), async (req, res) => {
     try {
-        const { userId } = req.auth || {};
+        const { userId } = req.auth() || {};
         if (!userId) {
             return res.status(401).json({ success: false, message: "Unauthorized" });
         }
@@ -458,7 +458,7 @@ router.get("/users/profile", requireAuth(), async (req, res) => {
 // Search users by name, email, or phone number (for police and volunteer users)
 router.get("/users/search", requireAuth(), async (req, res) => {
     try {
-        const { userId } = req.auth || {};
+        const { userId } = req.auth() || {};
         if (!userId) {
             return res.status(401).json({
                 success: false,

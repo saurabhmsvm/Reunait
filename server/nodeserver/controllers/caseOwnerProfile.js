@@ -7,7 +7,7 @@ import { config } from "../config/config.js";
 export const getCaseOwnerProfile = async (req, res) => {
   try {
     // Check if user is authenticated (required by requireAuth middleware)
-    const { userId } = req.auth || {};
+    const { userId } = req.auth() || {};
     if (!userId) {
       return res.status(401).json({ 
         success: false, 

@@ -1,10 +1,8 @@
 import 'dotenv/config';
 import express from "express";
-import bodyParser from "body-parser";
-import mongoose from "mongoose";
-import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
+import cors from "cors";
 import authRoutes from "./routes/auth.js"
 import casesRoutes from "./routes/cases.js"
 import findMatchesRoutes from "./routes/find-matches.js"
@@ -17,106 +15,33 @@ import volunteerRoutes from "./routes/volunteer.js"
 import notificationsRoutes from "./routes/notifications.js"
 import policeStationsRoutes from "./routes/police-stations.js"
 import donationsRoutes from "./routes/donations.js"
+import healthRoutes from "./routes/health.js"
 import { clerkMiddleware } from "@clerk/express";
 import { rateLimiter } from "./middleware/rateLimiter.js";
 import notificationsInterceptor from "./middleware/notificationsInterceptor.js";
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+import { skipJsonForWebhooks, bodyParserMiddleware } from "./middleware/bodyParser.js";
+import { corsMiddleware, privateNetworkAccess } from "./middleware/cors.js";
+import { startServer } from "./lib/server.js";
 import fs from 'fs';
-
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 const app = express();
 
 // Ensure Express trusts upstream proxies so req.ip and X-Forwarded-For work correctly
 app.set('trust proxy', true);
 
-// Middleware
-// Important: Skip JSON body parsing for webhooks so we can verify the raw payload
-app.use((req, res, next) => {
-    if (req.originalUrl && req.originalUrl.startsWith("/api/webhooks/clerk") ||
-        req.originalUrl && req.originalUrl.startsWith("/api/donations/webhook")) {
-        return next();
-    }
-    return express.json()(req, res, next);
-});
+/*  MIDDLEWARE  */
+// Skip JSON body parsing for webhooks so we can verify the raw payload
+app.use(skipJsonForWebhooks);
 app.use(helmet());
 app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
 app.use(morgan("common"));
 // Apply body parsers to all routes EXCEPT webhooks (need raw body for signature verification)
-app.use((req, res, next) => {
-    if (req.originalUrl && req.originalUrl.startsWith("/api/webhooks/clerk") ||
-        req.originalUrl && req.originalUrl.startsWith("/api/donations/webhook")) {
-        return bodyParser.raw({ type: "application/json" })(req, res, next);
-    }
-    return bodyParser.json({ limit: "30mb", extended: true })(req, res, (err) => {
-        if (err) return next(err);
-        return bodyParser.urlencoded({ limit: "30mb", extended: true })(req, res, next);
-    });
-});
-// Production-ready CORS: restrict to configured origins, allow Authorization header
-const parseAllowedOrigins = () => {
-    const raw = process.env.ALLOWED_ORIGINS || '';
-    return raw
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
-};
+app.use(bodyParserMiddleware);
 
-const allowedOrigins = parseAllowedOrigins();
-
-// Ensure Private Network Access preflights succeed on local/LAN
-app.use((req, res, next) => {
-    if (req.method === 'OPTIONS') {
-        res.header('Access-Control-Allow-Private-Network', 'true');
-    }
-    next();
-});
-
-app.use(cors((req, callback) => {
-    const corsOptions = {
-        origin: function (origin, cb) {
-            // Allow non-browser or same-origin requests (no Origin header)
-            if (!origin) return cb(null, true);
-
-            // Always allow Razorpay Checkout redirect posts to callback endpoint
-            // Official flow posts from Razorpay domains via the browser
-            if (req.originalUrl && req.originalUrl.startsWith("/api/donations/callback")) {
-                return cb(null, true);
-            }
-
-            // If no configured origins, allow all (useful for local/dev without setting env)
-            if (allowedOrigins.length === 0) return cb(null, true);
-
-            const isAllowed = allowedOrigins.some((entry) => {
-                if (entry === '*') return true;
-                // Support wildcard subdomains like *.example.com
-                if (entry.startsWith('*.')) {
-                    const base = entry.slice(2);
-                    try {
-                        const u = new URL(origin);
-                        return u.hostname === base || u.hostname.endsWith(`.${base}`);
-                    } catch {
-                        return false;
-                    }
-                }
-                return origin === entry;
-            });
-
-            return isAllowed ? cb(null, true) : cb(new Error('Not allowed by CORS'));
-        },
-        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Include-Notifications'],
-        credentials: true,
-        maxAge: 86400, // cache preflight for 24h
-    };
-    callback(null, corsOptions);
-}));
-
+// CORS configuration
+app.use(privateNetworkAccess);
+app.use(corsMiddleware);
 // Explicitly handle preflight
-// Express 5 + path-to-regexp v6: use a RegExp for a global preflight handler
 app.options(/.*/, cors());
 // Clerk middleware: mark webhook route as public so it bypasses auth
 app.use(clerkMiddleware({
@@ -142,6 +67,8 @@ app.use(rateLimiter);
 app.use(notificationsInterceptor({ readLimit: 20 }));
 
 /*  ROUTES  */
+// Health check endpoint (before other routes for faster response)
+app.use("/health", healthRoutes);
 app.use("/auth", authRoutes);
 app.use("/cases", casesRoutes);
 app.use("/api", findMatchesRoutes);
@@ -156,10 +83,10 @@ app.use("/api/police-stations", policeStationsRoutes);
 app.use("/api", donationsRoutes);
 
 
-/*  MONGOOSE SETUP  */
+/*  START SERVER  */
 const PORT = process.env.PORT || 6001;
-mongoose.connect(process.env.MONGO_URL, {
-    dbName: process.env.DB_NAME || "Reunite"
-}).then(() => {
-    app.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT} and accessible from network`));
-}).catch((error) => console.log(`${error} did not connect`))
+
+startServer(app, PORT).catch((error) => {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+});

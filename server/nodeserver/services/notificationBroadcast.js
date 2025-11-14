@@ -183,5 +183,41 @@ export function removeAllConnections(userId) {
   }
 }
 
+/**
+ * Close all SSE connections during graceful shutdown
+ * Properly deregisters all sessions and cleans up channels
+ */
+export function closeAllSSEConnections() {
+  try {
+    let closedCount = 0;
+    
+    // Iterate through all user channels
+    for (const [userId, channel] of userChannels.entries()) {
+      // Deregister all sessions from each channel
+      for (const session of channel.activeSessions) {
+        try {
+          channel.deregister(session);
+          closedCount++;
+        } catch (error) {
+          // Session already deregistered or closed
+        }
+      }
+      
+      // Clean up the channel
+      cleanupEmptyChannel(userId, channel);
+    }
+    
+    // Clear all channels
+    userChannels.clear();
+    allActiveSessions.clear();
+    
+    if (closedCount > 0) {
+      console.log(`Closed ${closedCount} SSE connection(s).`);
+    }
+  } catch (error) {
+    console.error('[SSE] Error closing all connections:', error.message);
+  }
+}
+
 // Export helper to get channel (for route usage)
 export { getUserChannel };

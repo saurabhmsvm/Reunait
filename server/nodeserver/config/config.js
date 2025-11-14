@@ -21,6 +21,7 @@ export const config = {
     awsRegion: process.env.AWS_REGION || 'us-east-1',
     awsBucketName: process.env.AWS_BUCKET_NAME,
     awsTempImageBucket: process.env.AWS_TEMP_IMAGE_BUCKET,
+    awsLambdaFunctionName: process.env.AWS_LAMBDA_FUNCTION_NAME || 'face_embedding_microservice',
     
     // Azure Content Safety
     azureEndpoint: process.env.AZURE_ENDPOINT,

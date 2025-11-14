@@ -4,7 +4,7 @@ import redis from '../services/redisClient.js';
 export const rateLimiter = async (req, res, next) => {
     try {
         // Prefer Clerk user id when available; fallback to client IP
-        const userId = req.auth?.userId;
+        const userId = req.auth()?.userId;
         const clientIp = (req.headers['x-forwarded-for']?.split(',')[0]?.trim()) || req.ip || 'unknown';
         const identifier = userId ? `user:${userId}` : `ip:${clientIp}`;
         const key = `ratelimit:${identifier}`;

@@ -12,7 +12,7 @@ const router = express.Router();
 // Volunteer role guard
 async function requireVolunteer(req, res, next) {
   try {
-    const { userId } = req.auth || {};
+    const { userId } = req.auth() || {};
     if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
     const cu = await clerkClient.users.getUser(userId);
     const role = cu?.publicMetadata?.role;

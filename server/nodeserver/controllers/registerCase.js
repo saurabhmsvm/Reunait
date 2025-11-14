@@ -134,7 +134,7 @@ export const registerCase = async (req, res) => {
         
         if (requestedBypass) {
             // Get user's role from Clerk (source of truth)
-            const clerkUserId = req.auth?.userId;
+            const clerkUserId = req.auth()?.userId;
             if (!clerkUserId) {
                 return res.status(401).json({
                     status: false,
@@ -186,7 +186,7 @@ export const registerCase = async (req, res) => {
             description: userDescription,
             aiDescription: userDescription, // Set to user's description initially (will be updated if AI succeeds)
             addedBy: req.body.reportedBy || 'general_user',
-            caseOwner: req.auth?.userId || null,
+            caseOwner: req.auth()?.userId || null,
             landMark: req.body.landMark || "",
             FIRNumber: req.body.FIRNumber || undefined,
             policeStationState: req.body.policeStationState || "",
@@ -241,7 +241,8 @@ export const registerCase = async (req, res) => {
         });
 
         // Add notification to the user's notification array
-        if (req.auth?.userId) {
+        const auth = req.auth();
+        if (auth?.userId) {
             const notificationData = {
                 message: `Case for ${req.body.fullName} has been successfully registered and is now live on the platform`,
                 time: new Date(),
@@ -251,7 +252,7 @@ export const registerCase = async (req, res) => {
             };
 
             const updatedUser = await User.findOneAndUpdate(
-                { clerkUserId: req.auth.userId },
+                { clerkUserId: auth.userId },
                 { $push: { notifications: notificationData } },
                 { new: true }
             ).select('notifications email').lean();
@@ -262,7 +263,7 @@ export const registerCase = async (req, res) => {
                 const unreadCount = (updatedUser.notifications || []).filter(n => !n.isRead).length;
                 try {
                     const { broadcastNotification } = await import('../services/notificationBroadcast.js');
-                    broadcastNotification(req.auth.userId, {
+                    broadcastNotification(auth.userId, {
                         id: String(newNotification._id),
                         message: newNotification.message || '',
                         isRead: Boolean(newNotification.isRead),
@@ -287,7 +288,7 @@ export const registerCase = async (req, res) => {
                         `Case for ${req.body.fullName} has been successfully registered and is now live on the platform.`,
                         {
                             notificationType: 'case_registered',
-                            userId: req.auth.userId,
+                            userId: auth.userId,
                             caseId: String(savedCase._id),
                             navigateTo: `/cases/${String(savedCase._id)}`,
                             fullName: req.body.fullName,
@@ -326,7 +327,7 @@ export const registerCase = async (req, res) => {
         }
 
         // Add case ID to user's cases array
-        const clerkUserId = req.auth?.userId;
+        const clerkUserId = req.auth()?.userId;
         if (clerkUserId) {
             await User.findOneAndUpdate(
                 { clerkUserId: clerkUserId },

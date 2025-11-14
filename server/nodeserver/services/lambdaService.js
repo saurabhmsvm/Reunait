@@ -76,7 +76,7 @@ const generateEmbeddings = async (image1, image2, doVerify = true, caseId = 'def
         
         // Create invoke command
         const command = new InvokeCommand({
-            FunctionName: 'face_embedding_microservice', // Your Lambda function name
+            FunctionName: config.awsLambdaFunctionName,
             Payload: JSON.stringify(payload),
             InvocationType: 'RequestResponse' // Synchronous invocation
         });
